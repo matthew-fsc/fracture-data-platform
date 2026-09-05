@@ -33,6 +33,8 @@ from fracture.core import db  # noqa: E402
 from fracture.core.secrets import EnvSecretResolver  # noqa: E402
 from fracture.pack import PackBuilder, assert_drillable  # noqa: E402
 from fracture.pack.data import collect  # noqa: E402
+from fracture.pack.dashboard import write as write_dashboards  # noqa: E402
+from fracture.pack.dashboard_data import collect as collect_dashboards  # noqa: E402
 from fracture.pack.render import write as write_pack  # noqa: E402
 from fracture.synth import DEMO_ESTATE, TEST_ESTATE, EstateGenerator, load_estate  # noqa: E402
 
@@ -112,10 +114,21 @@ def main() -> int:
         coverage = estimate_fold_in(systems).as_dict()
         data = collect(conn, tenant, result.pack_run.pack_run_id, firms, coverage)
 
-    banner("6. Rendering the pack")
+    banner("6. Rendering the pack and the departmental dashboards")
     out = write_pack(data, args.out)
-    size_kb = out.stat().st_size / 1024
-    print(f"   {out}  ({size_kb:.0f} KB)")
+    print(f"   {out}  ({out.stat().st_size / 1024:.0f} KB)")
+
+    firm_rows = [
+        {
+            "firm_id": f.firm_id, "legal_name": f.legal_name, "role": f.role,
+            "close_date": f.close_date.isoformat() if f.close_date else None,
+        }
+        for f in control.list_firms(tenant)
+    ]
+    with control.tenant_connection(tenant, "transform") as conn:
+        dashboard_data = collect_dashboards(conn, tenant, firm_rows)
+    dash = write_dashboards(dashboard_data, Path(args.out).with_name("dashboards.html"))
+    print(f"   {dash}  ({dash.stat().st_size / 1024:.0f} KB)")
 
     summary = {
         "tenant": tenant.slug,
@@ -128,6 +141,7 @@ def main() -> int:
         "recon": result.recon.summary(),
         "fold_in_coverage": coverage["weighted_coverage_pct"],
         "pack": str(out),
+        "dashboards": str(dash),
         "elapsed_s": round(time.perf_counter() - started, 1),
     }
     (Path(args.out).parent / "demo_summary.json").write_text(json.dumps(summary, indent=2))

@@ -130,3 +130,60 @@ now has a regression test that fails loudly.
 | The redactor matched only snake_case key names | `taxId`, `accountNumber` and `dateOfBirth` — what these APIs actually emit — went to the logs unredacted. |
 | The migration fan-out aborted on an unreachable tenant | One half-provisioned tenant blocks every migration the estate runs afterwards. |
 | A mart restore used `ON CONFLICT DO NOTHING` on a table with no unique constraint | Silently duplicated every row it had not deleted, corrupting state for later tests. |
+
+## Departmental dashboards and the executive KPI set
+
+Added after the platform build, on request. Six views, one per group that owns a
+set of decisions, plus the small comparable measure set they share. Definitions
+are in `docs/KPIS.md`; what follows is only what is worth arguing about.
+
+**Everything is a rate, a per-unit figure or basis points on AUM.** The platform
+firm bills 4.8x the smallest add-on. Any view built on absolute amounts ranks
+the firms by size and teaches the reader nothing, so no such view exists.
+
+**Three yields rather than one.** Schedule (what the fee schedules entitle the
+book to), realised (what was invoiced) and collected (what arrived). Only the
+platform can compute the first, because expected revenue is recomputed from the
+canonical fee schedule rather than taken from the billing system's own output —
+which is what makes the decomposition possible at all. The two gaps between the
+three separate billing execution from credit control.
+
+On the demo estate this is not academic: the *smallest* firm carries the *most
+expensive* book on the platform (84.6bps against 80.5) and still lands last on
+realised yield, because it invoices 78.5% of what it is owed. A dashboard
+showing revenue calls it small; one showing realised yield alone calls it cheap.
+Both send someone to reprice a firm whose pricing is fine.
+
+**Mix is checked, not assumed.** The standing objection to comparing yields is
+that tiered schedules charge fewer basis points on larger households, so a firm
+with wealthier clients looks cheaper without being worse. Average household AUM
+here is $1.18m, $1.26m and $1.21m — near enough identical, so mix explains none
+of the spread. `aum_per_household` sits on the profitability view so a reader can
+check that rather than take it on trust, and so it surfaces when a firm with
+genuinely different client sizes is folded in.
+
+**A found modelling gap.** The mart assertion that the yield bridge must close
+caught a residual of roughly 0.08bps that was not in any bucket: households
+billed *above* their schedule, or billed with no schedule assigned. Small, but a
+waterfall with an unexplained gap reads as precision while being wrong, and
+over-billing a client is a refund exposure rather than a windfall. It is now an
+explicit green step.
+
+**Peer benchmarks are weighted.** The platform figure is total over total, never
+the mean of the firms' rates. With firms of different size those differ, and the
+test suite asserts both that the benchmark is the weighted one and that the two
+are far enough apart on this estate for the test to be capable of failing.
+
+**Rank respects direction.** For a lower-is-better metric, rank 1 is the
+smallest value. Asserted, because a leaderboard whose first place is worst is a
+bug readers blame themselves for.
+
+### Not built here
+
+- **No drill-through from the dashboards.** The board pack's figures carry a
+  `drill_query`; these views do not yet. The lineage exists and the resolver is
+  the same one, so it is wiring rather than modelling.
+- **No trend on most views.** `mart.firm_scorecard` holds eight quarters and the
+  KPI table carries a prior-period value, but only the executive view uses it.
+- **Current state only.** These read live marts. They are deliberately not
+  pinned to a system time and are not a substitute for the issued pack.

@@ -22,8 +22,14 @@ source system's own reported totals, pins a pack, verifies it reissues
 byte-identically, checks every figure opens to raw records, and renders the pack
 to `out/pack.html`.
 
-    make test          # 240 tests
+    make test          # 252 tests
     make demo-small    # the same path in about 4 seconds
+
+It renders two things. `out/pack.html` is the board pack: pinned to a system
+time, byte-identical on reissue, the artefact a client or a lender receives.
+`out/dashboards.html` is the operating console: six departmental views of
+current state, with every measure normalised so firms of different size compare
+directly. Definitions are in [`docs/KPIS.md`](docs/KPIS.md).
 
 ## Shape
 
@@ -36,12 +42,12 @@ to `out/pack.html`.
       marts/          SQL models and the runner that asserts they make sense
       recon/          checks that run every refresh, with stated tolerances
       ai/             the AI boundary and its three enforcement points
-      pack/           pinning, reproducibility, drill-through, rendering
+      pack/           pinning, reproducibility, drill-through, pack and dashboards
       synth/          the synthetic estate generator
       orchestration/  Dagster assets, tenant as a dynamic partition
     reporting/packs/  pack definitions: SQL in git, diffable
     infra/terraform/  network, control-plane, tenant, compute, reporting
-    tests/            240 tests, every adapter through the same five gates
+    tests/            252 tests, every adapter through the same five gates
 
 ## The four claims, and where each is tested
 
@@ -102,6 +108,26 @@ registry, so an adapter added without fixtures fails it.
 returns which canonical entities you can populate, at what completeness, what is
 manual, and what an unsupported system costs — priced, not omitted.
 
+## Comparing firms
+
+The platform firm bills 4.8x what the smallest add-on bills, so no measure in
+the dashboards is an absolute amount. Everything is a rate, a per-unit figure or
+basis points on AUM. Three yields carry most of the weight:
+
+| Yield | Definition | Tells you |
+|---|---|---|
+| Schedule | expected fees over AUM | how the book is priced |
+| Realised | invoiced over AUM | what was billed |
+| Collected | cash over AUM | what was kept |
+
+The gaps between them separate billing execution from credit control, which
+have different owners and different fixes. On the demo estate the smallest firm
+is the *most* expensively priced book on the platform and still lands last on
+realised yield, because it invoices 78% of what it is owed. A single-yield
+dashboard reads that as "cheap" and sends someone to reprice it, which is the
+wrong action. Full definitions and the six departmental views are in
+[`docs/KPIS.md`](docs/KPIS.md).
+
 ## Operating it
 
     fracture control init
@@ -111,6 +137,7 @@ manual, and what an unsupported system costs — priced, not omitted.
     fracture recon acme
     fracture pack build acme --period-end 2026-06-30
     fracture pack verify acme <pack_run_id>   # rebuild and compare hashes
+    fracture dashboards acme                  # the six departmental views
     fracture drill acme 'mart.unbilled|MWP|MWP-HH-00042'
     fracture tenant export acme               # the contractual full export
 
