@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fracture
+          POSTGRES_PASSWORD: fracture
+          POSTGRES_DB: fracture_control
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fracture -d fracture_control"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      FRACTURE_PG_HOST: 127.0.0.1
+      FRACTURE_PG_USER: fracture
+      FRACTURE_PG_PASSWORD: fracture
+      FRACTURE_ENV: test
+      PYTHONPATH: src
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev,orchestration]"
+
+      - name: Grant the test role the privileges provisioning needs
+        # Provisioning creates databases and roles, so the CI role needs both.
+        # In production this is a dedicated admin role, not a superuser.
+        run: |
+          PGPASSWORD=fracture psql -h 127.0.0.1 -U fracture -d fracture_control \
+            -c "alter role fracture with superuser createdb createrole"
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Demo, end to end
+        # The fixture-scale run exercises the same path as the full demo:
+        # provision, load, map, build marts, reconcile, pin a pack, verify it
+        # reissues byte-identically, and check every figure opens to raw.
+        run: python scripts/demo.py --scale small --reset
+
+      - name: Adapter fixtures are current
+        # Regenerating must be a no-op. A drifted golden file means a mapping
+        # change landed without the diff being reviewed.
+        run: |
+          python scripts/regen_fixtures.py
+          git diff --exit-code tests/fixtures
