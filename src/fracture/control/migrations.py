@@ -99,19 +99,30 @@ class Migrator:
         return True
 
     def _record(self, tenant: Tenant, version: str, checksum: bytes, ok: bool, error: str | None) -> None:
-        with self.control.connection() as conn:
-            db.execute(
-                conn,
-                """
-                insert into control.tenant_migration
-                  (tenant_id, version, checksum, succeeded, error)
-                values (%s,%s,%s,%s,%s)
-                on conflict (tenant_id, version) do update set
-                  applied_at = now(), checksum = excluded.checksum,
-                  succeeded = excluded.succeeded, error = excluded.error
-                """,
-                (tenant.tenant_id, version, checksum, ok, error),
-            )
+        """Record the outcome, tolerating a tenant that has since been removed.
+
+        The registry is read once at the start of a fan-out and a tenant can be
+        archived or dropped while it runs. Letting the resulting foreign-key
+        violation escape would abort the whole fan-out over an outcome nobody
+        needs recorded.
+        """
+        try:
+            with self.control.connection() as conn:
+                db.execute(
+                    conn,
+                    """
+                    insert into control.tenant_migration
+                      (tenant_id, version, checksum, succeeded, error)
+                    select %s,%s,%s,%s,%s
+                     where exists (select 1 from control.tenant where tenant_id = %s)
+                    on conflict (tenant_id, version) do update set
+                      applied_at = now(), checksum = excluded.checksum,
+                      succeeded = excluded.succeeded, error = excluded.error
+                    """,
+                    (tenant.tenant_id, version, checksum, ok, error, tenant.tenant_id),
+                )
+        except Exception as exc:  # noqa: BLE001 - bookkeeping must not abort the run
+            log.warning("could not record migration %s for %s: %s", version, tenant.slug, exc)
 
     def apply_to_tenant(self, tenant: Tenant, version: str, sql: str) -> TenantMigrationResult:
         checksum = sha256_bytes(sql.encode("utf-8"))

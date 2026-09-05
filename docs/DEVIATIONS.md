@@ -109,3 +109,24 @@ for a phase 0/1 foundation:
 - **S3, KMS and Secrets Manager.** The `LocalArtifactStore` mirrors the S3 key
   layout exactly and is what the tests exercise; `S3ArtifactStore` and
   `AWSSecretsManagerResolver` are written but never executed here.
+
+## Found by the tests, during the build
+
+Each of these was a working-looking system producing a wrong number. They are
+listed because the pattern is the point: none of them raised anything, and each
+now has a regression test that fails loudly.
+
+| What was wrong | How it would have shown up |
+|---|---|
+| Incremental cursors were keyed by source, not by firm | The second firm in a tenant loads nothing on its first run. Its AUM is simply absent from the consolidated view. |
+| A partial source's nulls overwrote richer columns | Running the custodian feed detaches every account from its household; household AUM goes to zero and expected revenue with it. |
+| Duplicate natural keys inside one batch inserted duplicate open rows | Orion reports a household once per account, so a four-account household counted four times in every roll-up. |
+| Loaded margin computed a direct-cost total and never used it | Payroll silently excluded from margin. Every client looks more profitable than they are. |
+| `ORDER BY ... LIMIT` after the last branch of a `UNION` | Applies to the whole union. Two pack sections lost 27 of their figures and still rendered. |
+| Rebuild-from-object-storage parsed the load id out of the filename | UUIDs contain the separator, so the rebuild reconstructs the wrong load — or fails, which is the better outcome. |
+| The pack period was stored half-open but given an inclusive end date | Verification rebuilt the wrong period and reported a reproducibility failure that was not one. |
+| `now()` in the SLA mart | Every rebuild produces a different elapsed time, so a pack never reissues identically. |
+| Reconciliation results accumulated across runs | "How many checks passed" grew on each rebuild, breaking the same guarantee from the other direction. |
+| The redactor matched only snake_case key names | `taxId`, `accountNumber` and `dateOfBirth` — what these APIs actually emit — went to the logs unredacted. |
+| The migration fan-out aborted on an unreachable tenant | One half-provisioned tenant blocks every migration the estate runs afterwards. |
+| A mart restore used `ON CONFLICT DO NOTHING` on a table with no unique constraint | Silently duplicated every row it had not deleted, corrupting state for later tests. |

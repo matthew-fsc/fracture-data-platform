@@ -34,6 +34,12 @@ def two_tenants(control, tenant_slug):
     _drop(control, b)
 
 
+def test_rebuild_targets_every_active_tenant(control, two_tenants):
+    """The fan-out's scope is the registry, not a caller-supplied list."""
+    targets = {t.slug for t in Migrator(control).target_tenants()}
+    assert {t.slug for t in two_tenants} <= targets
+
+
 def test_fan_out_applies_to_every_tenant(control, two_tenants):
     run = Migrator(control).fan_out("probe-1", GOOD, tenants=two_tenants)
     assert run.success_rate == 1.0
@@ -109,26 +115,54 @@ def test_failures_are_recorded_per_tenant(control, two_tenants):
     assert rows[1]["succeeded"] is True
 
 
+def test_an_unreachable_tenant_fails_alone_rather_than_aborting_the_estate(control, two_tenants):
+    """A half-provisioned tenant, or one whose credentials no longer work, must
+    not block every migration the estate ever runs again."""
+    from fracture.control.models import Tenant
+
+    ghost = Tenant(
+        tenant_id=two_tenants[0].tenant_id,
+        slug="ghost-tenant",
+        legal_name="Ghost",
+        status="provisioning",
+        motion="operating",
+        kms_key_arn="arn:local:ghost",
+        db_host=control.settings.pg_host,
+        db_name="tenant_does_not_exist",
+        s3_prefix="tenants/ghost-tenant",
+    )
+    run = Migrator(control).fan_out(
+        "probe-ghost", GOOD, tenants=[ghost] + two_tenants, success_threshold=0.6
+    )
+    assert len(run.failed) == 1
+    assert run.failed[0].slug == "ghost-tenant"
+    for tenant in two_tenants:
+        with control.tenant_connection(tenant, "transform") as conn:
+            assert db.table_exists(conn, "mart", "migration_probe"), (
+                "an unreachable tenant stopped the healthy ones from migrating"
+            )
+
+
 def test_rebuilding_the_schema_everywhere_is_idempotent(control, two_tenants):
     """Every DDL script is create-if-not-exists or create-or-replace, so a
     re-apply repairs drift rather than destroying it."""
+    from fracture.canon.schema import ddl_checksum, tenant_ddl_scripts
+
     migrator = Migrator(control)
-    first = migrator.rebuild_schema_everywhere()
+    ddl = "\n".join(sql for _, sql in tenant_ddl_scripts())
+    version = f"ddl-{ddl_checksum().hex()[:12]}"
+    # Scoped to this test's own tenants. `rebuild_schema_everywhere` fans out
+    # over the whole registry by design, and asserting a clean sweep of every
+    # tenant in a shared development database would make this a test about the
+    # environment rather than about idempotency.
+    first = migrator.fan_out(version, ddl, tenants=two_tenants)
     assert first.success_rate == 1.0
     # Dropped as `owner`: transform has DML on lineage but does not own the
     # tables, which is the grant model working rather than a test convenience.
     for tenant in two_tenants:
         with control.tenant_connection(tenant, "owner") as conn:
             db.execute(conn, "drop table if exists lineage.mart_edge cascade")
-    second = migrator.fan_out(
-        first.version + "-repair",
-        "\n".join(
-            sql for _, sql in __import__(
-                "fracture.canon.schema", fromlist=["x"]
-            ).tenant_ddl_scripts()
-        ),
-        tenants=two_tenants,
-    )
+    second = migrator.fan_out(version + "-repair", ddl, tenants=two_tenants)
     assert second.success_rate == 1.0
     for tenant in two_tenants:
         with control.tenant_connection(tenant, "transform") as conn:
