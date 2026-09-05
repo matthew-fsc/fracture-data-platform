@@ -1,0 +1,94 @@
+[
+ {
+  "entity": "account",
+  "natural_key": "A-001",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "account_subtype": "joint",
+   "account_type": "custodial",
+   "billable": null,
+   "closed_on": null,
+   "custodian": "schwab",
+   "household_id": null,
+   "opened_on": "2019-04-10",
+   "party_id": null,
+   "status": "open"
+  },
+  "valid_from": "2019-04-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "account",
+  "natural_key": "A-002",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-002",
+   "account_subtype": "ira",
+   "account_type": "custodial",
+   "billable": null,
+   "closed_on": null,
+   "custodian": "schwab",
+   "household_id": null,
+   "opened_on": "2016-12-01",
+   "party_id": null,
+   "status": "open"
+  },
+  "valid_from": "2016-12-01",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-001|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "as_of_date": "2026-03-31",
+   "billable_value": null,
+   "cash_value": "42000.00",
+   "currency": "USD",
+   "market_value": "1450000.00"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": "2026-04-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-002|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-002",
+   "as_of_date": "2026-03-31",
+   "billable_value": null,
+   "cash_value": "115000.00",
+   "currency": "USD",
+   "market_value": "3820000.00"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": "2026-04-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ }
+]

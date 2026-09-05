@@ -1,0 +1,85 @@
+[
+ {
+  "entity": "fee_schedule",
+  "natural_key": "SCHED-LEGACY",
+  "firm_id": "FIX",
+  "values": {
+   "basis": "aum",
+   "billing_timing": "advance",
+   "calc_method": "blended",
+   "frequency": "quarterly",
+   "name": "Legacy 1.00% \u2014 repapering pending",
+   "schedule_id": "SCHED-LEGACY",
+   "source_kind": "manual",
+   "valuation_rule": "period_start"
+  },
+  "valid_from": "2011-07-01",
+  "valid_to": "2024-12-31",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "fee_tier",
+  "natural_key": "SCHED-LEGACY|1",
+  "firm_id": "FIX",
+  "values": {
+   "annual_rate_bps": "100.000000",
+   "flat_amount": null,
+   "lower_bound": "0",
+   "schedule_id": "SCHED-LEGACY",
+   "tier_seq": 1,
+   "upper_bound": null
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "fee_tier",
+  "natural_key": "SCHED-LEGACY|2",
+  "firm_id": "FIX",
+  "values": {
+   "annual_rate_bps": null,
+   "flat_amount": "12500",
+   "lower_bound": "25000000",
+   "schedule_id": "SCHED-LEGACY",
+   "tier_seq": 2,
+   "upper_bound": null
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "schedule_assignment",
+  "natural_key": "account|A-\u00dc01|SCHED-LEGACY|1994-01-10",
+  "firm_id": "FIX",
+  "values": {
+   "schedule_id": "SCHED-LEGACY",
+   "scope_id": "A-\u00dc01",
+   "scope_type": "account"
+  },
+  "valid_from": "1994-01-10",
+  "valid_to": "2024-12-31",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

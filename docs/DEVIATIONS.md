@@ -1,0 +1,189 @@
+# Where this build departs from the specification
+
+Every entry is a decision, not an oversight. Anything I could not do in this
+environment is in the last section, marked as untested rather than done.
+
+## Substitutions
+
+**Evidence.dev replaced by a pack compiler.** Spec section 11 names Evidence.dev.
+Pack definitions here are still SQL in git (`reporting/packs/*.sql`), still
+per-tenant compiled, still diffable when a client asks why a section changed --
+which is what the spec is actually buying. The renderer
+(`fracture.pack.render`) compiles them to a self-contained HTML page instead of
+running an Evidence build. Reasons: an Evidence build is a Node toolchain and a
+per-tenant compile step in the delivery path, and the output still needs hosting
+and signing; and a self-contained file is what a lender's PDF is printed from
+and what survives being emailed. The section contract (nine columns, one row per
+figure) is deliberately Evidence-shaped, so moving to it later is a renderer
+swap, not a re-model.
+
+**dbt Core is scaffolded, not the executor.** Spec section 2 commits to dbt Core
+and section 17.5 leaves it open. The mart models are plain parameterised SQL run
+by `fracture.marts.runner`, for one reason: every mart must bind the pack's
+`system_time`, and a mart that reads `canon` without that parameter silently
+double-counts restated rows. The runner refuses to execute SQL that reads `canon`
+without a system-time filter (`assert_temporal_filter`), and runs assertions
+after each model. dbt gives docs and lineage but does not give either of those,
+and per-tenant target generation for database-per-tenant is its own project. The
+models are written so `dbt run --vars '{system_time: ...}'` is a mechanical port
+if per-tenant environment management stops being the reason not to.
+
+**Postgres roles own the tenant schema, Terraform owns everything around it.**
+The `tenant` Terraform module creates the database, the KMS key, the S3 prefix
+and the secret paths; `fracture.control.provisioning` creates the four roles, the
+schemas and the grants. Both read the same four role names, and
+`test_terraform_and_python_agree_on_the_role_list` fails if they drift.
+
+## Additions
+
+These are not in the spec. Each closes a hole the spec's own guarantees imply.
+
+**Source precedence (`fracture.canon.precedence`).** Spec section 7 has
+`canon_<entity>` fanning in across sources but does not say who wins when two
+sources disagree. "Whichever asset ran last" makes the number in the pack change
+for reasons nobody can explain. Precedence is declared per entity; a
+lower-authority source never overwrites, and the disagreement is written to
+`recon.source_variance` as a finding. Orion and the Schwab file disagreeing about
+an account's value is the flagship reconciliation finding, not a coin flip.
+
+**Merge-on-supersede.** A partial source (the custodian file knows an account's
+value and nothing about its household) must not null out columns it has no view
+of. A null in an incoming record is absence of knowledge, not an assertion of
+emptiness. Without this, running the custodian feed detaches every account from
+its household and household AUM goes to zero.
+
+**`source_id` on canonical tables.** Needed by precedence. The schema stays
+source-agnostic; the column records which source produced this version.
+
+**One-open-row indexes (`065_uniqueness.sql`).** The bitemporal model allows
+several versions of a fact. It must never allow two *current* rows for the same
+key and business-validity start, because duplicates double-count into every mart
+above them without anything looking wrong.
+
+**`field_names` on `source_fingerprint`.** Spec section 16 wants an alert when a
+schema hash changes. Storing only the hash makes the alert "something changed",
+which is not actionable. Storing the field map makes it "positions.billableValue
+was removed".
+
+**Firm-scoped incremental cursors.** A tenant holds several firms running the
+same system. A cursor keyed only by source silently skips the second firm's
+entire history on its first run. Found by a test, fixed, and now asserted.
+
+**`run_id` on `recon.result`.** Without it, "how many checks passed" counts every
+check ever evaluated, which grows on each rebuild and makes a pack's assurance
+section irreproducible -- which quietly voids the byte-identical guarantee.
+
+**`mart.cost_allocation_check`.** "Fully loaded" margin means no cost falls out.
+An earlier version of the margin model computed a direct-cost total and never
+used it, which flattered every margin figure and raised nothing. The check
+asserts allocated cost equals booked cost per firm-quarter.
+
+## Not built
+
+Phase 2 and beyond in the spec's build sequence, and deliberately out of scope
+for a phase 0/1 foundation:
+
+- **PDF delivery.** The HTML pack prints, but there is no headless-Chrome step.
+- **Tier 2 and tier 3 adapters.** Addepar, Black Diamond, Salesforce FSC,
+  Pershing, Bill.com, Gusto/ADP; and the whole insurance track (AMS360, Applied
+  Epic, EZLynx, commission-statement extraction). The insurance canonical tables
+  (`policy_term`) exist; no adapter populates them. Spec section 15: do not start
+  phase 3 before two paying tenants in wealth.
+- **AI features themselves.** The boundary is built and enforced three ways
+  (proposal table, database trigger, canonical writer); no model is called. The
+  boundary is the part that needed to exist before anything calls one.
+- **SOC 2 tooling.** `pgaudit` is not enabled here (it needs a server restart and
+  a shared-preload change); `control.access_log` records human queries and the
+  Terraform ships an object-locked audit bucket.
+- **Signed-URL delivery service.** The reporting module creates the bucket and
+  the policy; nothing mints URLs yet.
+
+## Untested in this environment
+
+- **Terraform.** No `terraform` binary was available, so the modules are
+  unvalidated: not `fmt`, not `validate`, not `plan`. Treat them as reviewed
+  drafts. The one thing that is tested is that their role list matches the
+  Python.
+- **Neon and RDS.** Everything ran against a local Postgres 16. The host choice
+  (spec 17.1) is one variable and one output; nothing above it knows which.
+- **S3, KMS and Secrets Manager.** The `LocalArtifactStore` mirrors the S3 key
+  layout exactly and is what the tests exercise; `S3ArtifactStore` and
+  `AWSSecretsManagerResolver` are written but never executed here.
+
+## Found by the tests, during the build
+
+Each of these was a working-looking system producing a wrong number. They are
+listed because the pattern is the point: none of them raised anything, and each
+now has a regression test that fails loudly.
+
+| What was wrong | How it would have shown up |
+|---|---|
+| Incremental cursors were keyed by source, not by firm | The second firm in a tenant loads nothing on its first run. Its AUM is simply absent from the consolidated view. |
+| A partial source's nulls overwrote richer columns | Running the custodian feed detaches every account from its household; household AUM goes to zero and expected revenue with it. |
+| Duplicate natural keys inside one batch inserted duplicate open rows | Orion reports a household once per account, so a four-account household counted four times in every roll-up. |
+| Loaded margin computed a direct-cost total and never used it | Payroll silently excluded from margin. Every client looks more profitable than they are. |
+| `ORDER BY ... LIMIT` after the last branch of a `UNION` | Applies to the whole union. Two pack sections lost 27 of their figures and still rendered. |
+| Rebuild-from-object-storage parsed the load id out of the filename | UUIDs contain the separator, so the rebuild reconstructs the wrong load — or fails, which is the better outcome. |
+| The pack period was stored half-open but given an inclusive end date | Verification rebuilt the wrong period and reported a reproducibility failure that was not one. |
+| `now()` in the SLA mart | Every rebuild produces a different elapsed time, so a pack never reissues identically. |
+| Reconciliation results accumulated across runs | "How many checks passed" grew on each rebuild, breaking the same guarantee from the other direction. |
+| The redactor matched only snake_case key names | `taxId`, `accountNumber` and `dateOfBirth` — what these APIs actually emit — went to the logs unredacted. |
+| The migration fan-out aborted on an unreachable tenant | One half-provisioned tenant blocks every migration the estate runs afterwards. |
+| A mart restore used `ON CONFLICT DO NOTHING` on a table with no unique constraint | Silently duplicated every row it had not deleted, corrupting state for later tests. |
+
+## Departmental dashboards and the executive KPI set
+
+Added after the platform build, on request. Six views, one per group that owns a
+set of decisions, plus the small comparable measure set they share. Definitions
+are in `docs/KPIS.md`; what follows is only what is worth arguing about.
+
+**Everything is a rate, a per-unit figure or basis points on AUM.** The platform
+firm bills 4.8x the smallest add-on. Any view built on absolute amounts ranks
+the firms by size and teaches the reader nothing, so no such view exists.
+
+**Three yields rather than one.** Schedule (what the fee schedules entitle the
+book to), realised (what was invoiced) and collected (what arrived). Only the
+platform can compute the first, because expected revenue is recomputed from the
+canonical fee schedule rather than taken from the billing system's own output —
+which is what makes the decomposition possible at all. The two gaps between the
+three separate billing execution from credit control.
+
+On the demo estate this is not academic: the *smallest* firm carries the *most
+expensive* book on the platform (84.6bps against 80.5) and still lands last on
+realised yield, because it invoices 78.5% of what it is owed. A dashboard
+showing revenue calls it small; one showing realised yield alone calls it cheap.
+Both send someone to reprice a firm whose pricing is fine.
+
+**Mix is checked, not assumed.** The standing objection to comparing yields is
+that tiered schedules charge fewer basis points on larger households, so a firm
+with wealthier clients looks cheaper without being worse. Average household AUM
+here is $1.18m, $1.26m and $1.21m — near enough identical, so mix explains none
+of the spread. `aum_per_household` sits on the profitability view so a reader can
+check that rather than take it on trust, and so it surfaces when a firm with
+genuinely different client sizes is folded in.
+
+**A found modelling gap.** The mart assertion that the yield bridge must close
+caught a residual of roughly 0.08bps that was not in any bucket: households
+billed *above* their schedule, or billed with no schedule assigned. Small, but a
+waterfall with an unexplained gap reads as precision while being wrong, and
+over-billing a client is a refund exposure rather than a windfall. It is now an
+explicit green step.
+
+**Peer benchmarks are weighted.** The platform figure is total over total, never
+the mean of the firms' rates. With firms of different size those differ, and the
+test suite asserts both that the benchmark is the weighted one and that the two
+are far enough apart on this estate for the test to be capable of failing.
+
+**Rank respects direction.** For a lower-is-better metric, rank 1 is the
+smallest value. Asserted, because a leaderboard whose first place is worst is a
+bug readers blame themselves for.
+
+### Not built here
+
+- **No drill-through from the dashboards.** The board pack's figures carry a
+  `drill_query`; these views do not yet. The lineage exists and the resolver is
+  the same one, so it is wiring rather than modelling.
+- **No trend on most views.** `mart.firm_scorecard` holds eight quarters and the
+  KPI table carries a prior-period value, but only the executive view uses it.
+- **Current state only.** These read live marts. They are deliberately not
+  pinned to a system time and are not a substitute for the issued pack.

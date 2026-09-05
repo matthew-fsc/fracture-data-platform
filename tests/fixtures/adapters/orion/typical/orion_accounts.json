@@ -1,0 +1,30 @@
+{
+ "accounts": [
+  {
+   "accountId": "A-001",
+   "billable": true,
+   "closedOn": null,
+   "country": "US",
+   "custodian": "schwab",
+   "householdId": "H-001",
+   "openedOn": "2019-04-10",
+   "primaryContactId": "P-001",
+   "primaryContactName": "Amara Okafor",
+   "registrationType": "joint",
+   "updatedAt": "2026-01-05"
+  },
+  {
+   "accountId": "A-002",
+   "billable": true,
+   "closedOn": null,
+   "country": "US",
+   "custodian": "schwab",
+   "householdId": "H-002",
+   "openedOn": "2016-12-01",
+   "primaryContactId": "P-002",
+   "primaryContactName": "Devin Lindqvist",
+   "registrationType": "ira",
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

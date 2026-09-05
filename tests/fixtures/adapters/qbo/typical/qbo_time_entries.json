@@ -1,0 +1,13 @@
+{
+ "time_entries": [
+  {
+   "customerRef": "H-001",
+   "employeeRef": "ADV-001",
+   "entryDate": "2026-03-31",
+   "entryId": "TIME-001",
+   "hourlyCost": "142.00",
+   "hours": "4.25",
+   "producerRef": "ADV-001"
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "representatives": [
+  {
+   "assignments": [
+    {
+     "effectiveFrom": "1994-01-03",
+     "effectiveTo": "2025-11-30",
+     "householdId": "H-\u00dc01",
+     "splitPct": 40
+    }
+   ],
+   "hireDate": "2008-03-17",
+   "name": "Kwame Osei",
+   "repCode": "KO002",
+   "repId": "ADV-002",
+   "termDate": "2025-11-30"
+  }
+ ]
+}

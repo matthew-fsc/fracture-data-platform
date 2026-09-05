@@ -1,0 +1,31 @@
+{
+ "accounts": [
+  {
+   "accountId": "A-\u00dc01",
+   "billable": false,
+   "closedOn": "2026-02-28",
+   "country": "FR",
+   "custodian": "schwab",
+   "householdId": "H-\u00dc01",
+   "openedOn": "1994-01-10",
+   "primaryContactId": "P-\u00dc01",
+   "primaryContactName": "\u00c9mile Dubois-O'Brien",
+   "registrationType": "trust",
+   "taxId": "123-45-6789",
+   "updatedAt": "2026-01-05"
+  },
+  {
+   "accountId": "A-003",
+   "billable": true,
+   "closedOn": null,
+   "country": null,
+   "custodian": "fidelity",
+   "householdId": null,
+   "openedOn": "2025-12-31",
+   "primaryContactId": null,
+   "primaryContactName": null,
+   "registrationType": null,
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

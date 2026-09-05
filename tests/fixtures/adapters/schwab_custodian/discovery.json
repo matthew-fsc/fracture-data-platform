@@ -1,0 +1,24 @@
+[
+ {
+  "name": "accounts",
+  "primary_key": [
+   "AccountNumber"
+  ],
+  "incremental_on": null
+ },
+ {
+  "name": "control_totals",
+  "primary_key": [
+   "AsOfDate"
+  ],
+  "incremental_on": "AsOfDate"
+ },
+ {
+  "name": "positions",
+  "primary_key": [
+   "AccountNumber",
+   "AsOfDate"
+  ],
+  "incremental_on": "AsOfDate"
+ }
+]

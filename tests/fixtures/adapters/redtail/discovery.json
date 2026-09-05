@@ -1,0 +1,30 @@
+[
+ {
+  "name": "activities",
+  "primary_key": [
+   "activityId"
+  ],
+  "incremental_on": "createdAt"
+ },
+ {
+  "name": "contacts",
+  "primary_key": [
+   "contactId"
+  ],
+  "incremental_on": "updatedAt"
+ },
+ {
+  "name": "families",
+  "primary_key": [
+   "familyId"
+  ],
+  "incremental_on": "updatedAt"
+ },
+ {
+  "name": "users",
+  "primary_key": [
+   "userId"
+  ],
+  "incremental_on": null
+ }
+]

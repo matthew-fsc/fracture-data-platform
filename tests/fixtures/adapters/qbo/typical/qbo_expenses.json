@@ -1,0 +1,13 @@
+{
+ "expenses": [
+  {
+   "allocationBasis": "direct",
+   "amount": "18400.00",
+   "category": "payroll",
+   "employeeRef": "ADV-001",
+   "expenseId": "EXP-001",
+   "txnDate": "2026-03-31",
+   "vendorRef": null
+  }
+ ]
+}
