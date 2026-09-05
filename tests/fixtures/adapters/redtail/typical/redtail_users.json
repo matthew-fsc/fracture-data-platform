@@ -1,0 +1,12 @@
+{
+ "users": [
+  {
+   "hireDate": "2014-06-01",
+   "name": "Priya Marchetti",
+   "repCode": "PM001",
+   "role": "advisor",
+   "termDate": null,
+   "userId": "ADV-001"
+  }
+ ]
+}

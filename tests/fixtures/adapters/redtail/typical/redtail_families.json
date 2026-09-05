@@ -1,0 +1,13 @@
+{
+ "families": [
+  {
+   "createdAt": "2019-04-02",
+   "familyId": "H-001",
+   "familyName": "The Okafor Household",
+   "segment": "core",
+   "servicingAdvisorId": "ADV-001",
+   "splitPct": 100,
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

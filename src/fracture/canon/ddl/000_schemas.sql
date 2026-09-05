@@ -1,7 +1,11 @@
 -- Tenant database: schema layout (spec section 6.4)
 --   raw -> stg -> canon -> mart -> pack, with lineage and ai alongside.
-
-create extension if not exists "pgcrypto";
+--
+-- Every script under this directory is applied by the tenant's `owner` role, so
+-- nothing here may require superuser. gen_random_uuid() is built into Postgres
+-- 13+, which is why pgcrypto is not installed: it is an untrusted extension and
+-- requiring it would force migrations to run as superuser, leaving `owner`
+-- owning none of the objects it is supposed to migrate.
 
 create schema if not exists raw;
 create schema if not exists stg;

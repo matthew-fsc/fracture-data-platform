@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, Sequence
 
-from fracture.core.config import Settings, settings as default_settings
+from fracture.core.config import Settings
 from fracture.core.hashing import canonical_json, sha256_bytes
 from fracture.core.logging import get_logger
 
@@ -52,7 +52,10 @@ class LocalArtifactStore:
     """
 
     def __init__(self, root: Path | str | None = None, bucket: str | None = None) -> None:
-        s = default_settings
+        # Fresh Settings rather than the module-level singleton: that one is
+        # frozen at import, so a process that configures its environment after
+        # importing would silently write artifacts to the default location.
+        s = Settings()
         self.root = Path(root or s.artifact_root)
         self.bucket = bucket or s.artifact_bucket
         self.root.mkdir(parents=True, exist_ok=True)
@@ -99,7 +102,7 @@ class S3ArtifactStore:  # pragma: no cover - requires AWS
     def __init__(self, bucket: str | None = None, kms_key_arn: str | None = None) -> None:
         import boto3
 
-        self.bucket = bucket or default_settings.artifact_bucket
+        self.bucket = bucket or Settings().artifact_bucket
         self.kms_key_arn = kms_key_arn
         self._client = boto3.client("s3")
 
@@ -148,6 +151,7 @@ def build_envelope(
     stream: str,
     extracted_at: dt.datetime,
     records: Sequence[Any],
+    load_id: str | None = None,
     adapter_version: str | None = None,
     schema_hash: bytes | None = None,
     cursor_start: str | None = None,
@@ -161,6 +165,11 @@ def build_envelope(
     """
     envelope = {
         "format_version": ARTIFACT_FORMAT_VERSION,
+        # The load id lives in the envelope, not only in the object key. Parsing
+        # it back out of a filename works right up until the key format changes
+        # or the id contains the same separator, and then a rebuild silently
+        # reconstructs the wrong load.
+        "load_id": load_id,
         "firm_id": firm_id,
         "source_id": source_id,
         "stream": stream,
@@ -191,7 +200,9 @@ def store_extraction(
     **envelope_kwargs: Any,
 ) -> StoredArtifact:
     """Write the artifact and return its URI and hash. Call before loading."""
-    data = build_envelope(firm_id, source_id, stream, extracted_at, records, **envelope_kwargs)
+    data = build_envelope(
+        firm_id, source_id, stream, extracted_at, records, load_id=load_id, **envelope_kwargs
+    )
     key = artifact_key(s3_prefix, firm_id, source_id, stream, extracted_at, load_id)
     uri = store.put(key, data)
     artifact = StoredArtifact(

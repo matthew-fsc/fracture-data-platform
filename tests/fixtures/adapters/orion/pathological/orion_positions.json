@@ -1,0 +1,20 @@
+{
+ "positions": [
+  {
+   "accountId": "A-\u00dc01",
+   "asOfDate": "2026-03-31",
+   "billableValue": "0.00",
+   "cashValue": "0",
+   "currency": "EUR",
+   "marketValue": "-18500.25"
+  },
+  {
+   "accountId": "A-003",
+   "asOfDate": "2019-06-30",
+   "billableValue": null,
+   "cashValue": null,
+   "currency": "USD",
+   "marketValue": "0.00"
+  }
+ ]
+}

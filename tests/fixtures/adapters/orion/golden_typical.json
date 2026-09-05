@@ -1,0 +1,310 @@
+[
+ {
+  "entity": "account",
+  "natural_key": "A-001",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "account_subtype": "joint",
+   "account_type": "custodial",
+   "billable": true,
+   "closed_on": null,
+   "custodian": "schwab",
+   "household_id": "H-001",
+   "opened_on": "2019-04-10",
+   "party_id": "P-001",
+   "status": "open"
+  },
+  "valid_from": "2019-04-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "account",
+  "natural_key": "A-002",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-002",
+   "account_subtype": "ira",
+   "account_type": "custodial",
+   "billable": true,
+   "closed_on": null,
+   "custodian": "schwab",
+   "household_id": "H-002",
+   "opened_on": "2016-12-01",
+   "party_id": "P-002",
+   "status": "open"
+  },
+  "valid_from": "2016-12-01",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-001|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "as_of_date": "2026-03-31",
+   "billable_value": "1450000.00",
+   "cash_value": "42000.00",
+   "currency": "USD",
+   "market_value": "1450000.00"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": "2026-04-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-002|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-002",
+   "as_of_date": "2026-03-31",
+   "billable_value": "3820000.00",
+   "cash_value": "115000.00",
+   "currency": "USD",
+   "market_value": "3820000.00"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": "2026-04-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "book_assignment",
+  "natural_key": "ADV-001|H-001|2019-04-02",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-001",
+   "producer_id": "ADV-001",
+   "split_pct": "100"
+  },
+  "valid_from": "2019-04-02",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "book_assignment",
+  "natural_key": "ADV-001|H-002|2016-11-20",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-002",
+   "producer_id": "ADV-001",
+   "split_pct": "60"
+  },
+  "valid_from": "2016-11-20",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-001",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-001",
+   "name": "The Okafor Household",
+   "onboarded_on": "2019-04-02",
+   "segment": "core"
+  },
+  "valid_from": "2019-04-02",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-002",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-002",
+   "name": "The Lindqvist Household",
+   "onboarded_on": "2016-11-20",
+   "segment": "private_client"
+  },
+  "valid_from": "2016-11-20",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "household_member",
+  "natural_key": "H-001|P-001",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-001",
+   "party_id": "P-001",
+   "role": "primary"
+  },
+  "valid_from": "2019-04-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household_member",
+  "natural_key": "H-002|P-002",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-002",
+   "party_id": "P-002",
+   "role": "primary"
+  },
+  "valid_from": "2016-12-01",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "party",
+  "natural_key": "P-001",
+  "firm_id": "FIX",
+  "values": {
+   "country": "US",
+   "display_name": "Amara Okafor",
+   "legal_name": "Amara Okafor",
+   "party_id": "P-001",
+   "party_type": "individual",
+   "tax_id_last4": null
+  },
+  "valid_from": "2019-04-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "party",
+  "natural_key": "P-002",
+  "firm_id": "FIX",
+  "values": {
+   "country": "US",
+   "display_name": "Devin Lindqvist",
+   "legal_name": "Devin Lindqvist",
+   "party_id": "P-002",
+   "party_type": "individual",
+   "tax_id_last4": null
+  },
+  "valid_from": "2016-12-01",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "producer",
+  "natural_key": "ADV-001",
+  "firm_id": "FIX",
+  "values": {
+   "display_name": "Priya Marchetti",
+   "hire_date": "2014-06-01",
+   "party_id": null,
+   "producer_id": "ADV-001",
+   "producer_type": "advisor",
+   "term_date": null
+  },
+  "valid_from": "2014-06-01",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "producer_crosswalk",
+  "natural_key": "orion|PM001",
+  "firm_id": "FIX",
+  "values": {
+   "confidence": 1.0,
+   "external_key": "PM001",
+   "producer_id": "ADV-001",
+   "reviewed_by": "system:orion",
+   "system": "orion"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "service_event",
+  "natural_key": "SVC-001",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "actor_producer_id": "ADV-001",
+   "closed_at": "2026-02-12T09:30:00+00:00",
+   "event_type": "transfer",
+   "household_id": "H-001",
+   "opened_at": "2026-02-10T14:05:00+00:00",
+   "service_event_id": "SVC-001",
+   "sla_target_hours": "120"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

@@ -1,0 +1,157 @@
+[
+ {
+  "entity": "cash_receipt",
+  "natural_key": "PMT-001",
+  "firm_id": "FIX",
+  "values": {
+   "amount": "3625.00",
+   "household_id": "H-001",
+   "method": "ach",
+   "receipt_id": "PMT-001",
+   "received_on": "2026-04-28"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "cost_line",
+  "natural_key": "EXP-001",
+  "firm_id": "FIX",
+  "values": {
+   "allocation_basis": "direct",
+   "amount": "18400.00",
+   "category": "payroll",
+   "cost_id": "EXP-001",
+   "period_end": "2026-03-31",
+   "period_start": "2026-03-31",
+   "person_id": "ADV-001",
+   "vendor": null
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "fte_allocation",
+  "natural_key": "TIME-001",
+  "firm_id": "FIX",
+  "values": {
+   "hourly_cost": "142.00",
+   "hours": "4.25",
+   "household_id": "H-001",
+   "period_end": "2026-03-31",
+   "period_start": "2026-03-31",
+   "person_id": "ADV-001",
+   "producer_id": "ADV-001"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "invoice",
+  "natural_key": "INV-001",
+  "firm_id": "FIX",
+  "values": {
+   "currency": "USD",
+   "due_on": "2026-05-05",
+   "household_id": "H-001",
+   "invoice_id": "INV-001",
+   "issued_on": "2026-04-05",
+   "period_end": "2026-03-31",
+   "period_start": "2026-01-01",
+   "status": "open",
+   "total_amount": "3625.00"
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "invoice_line",
+  "natural_key": "INV-001|1",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "amount": "3625.00",
+   "description": "Advisory fee Q1 2026",
+   "invoice_id": "INV-001",
+   "line_no": 1,
+   "revenue_event_id": null
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "receipt_application",
+  "natural_key": "PMT-001|INV-001",
+  "firm_id": "FIX",
+  "values": {
+   "amount_applied": "3625.00",
+   "applied_on": "2026-04-28",
+   "invoice_id": "INV-001",
+   "receipt_id": "PMT-001"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "revenue_event",
+  "natural_key": "BILLED-INV-001-1",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "amount": "3625.00",
+   "basis_amount": "1450000.00",
+   "currency": "USD",
+   "event_type": "fee_accrual",
+   "household_id": "H-001",
+   "origin": "source",
+   "period_end": "2026-03-31",
+   "period_start": "2026-01-01",
+   "producer_id": null,
+   "revenue_event_id": "BILLED-INV-001-1"
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

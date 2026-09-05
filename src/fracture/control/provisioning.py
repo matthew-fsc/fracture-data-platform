@@ -88,11 +88,17 @@ class Provisioner:
     def provision(self, tenant: Tenant, install_schema: bool = True) -> Tenant:
         """Create the database, roles, schemas and grants for one tenant.
 
+        Roles are created before the database so the database can be handed to
+        `t_<slug>_owner` immediately. That matters: spec 3.3 makes `owner` the
+        DDL role used by migrations, and a role that owns none of the objects it
+        is meant to migrate cannot alter or drop any of them.
+
         Idempotent: re-running against an existing tenant repairs missing roles
         and grants rather than failing.
         """
-        self._create_database(tenant)
         self._create_roles(tenant)
+        self._create_database(tenant)
+        self._grant_connect(tenant)
         if install_schema:
             self.install_tenant_schema(tenant)
         self._apply_grants(tenant)
@@ -110,12 +116,15 @@ class Provisioner:
         conn = self._admin_connection()
         try:
             with conn.cursor() as cur:
+                owner = tenant.role_name("owner")
                 cur.execute("select 1 from pg_database where datname = %s", (tenant.db_name,))
-                if cur.fetchone():
-                    return
-                # Identifier interpolation: db_name is derived from the slug,
-                # which the control plane constrains to ^[a-z][a-z0-9-]+[a-z0-9]$.
-                cur.execute(f'create database "{tenant.db_name}"')
+                if not cur.fetchone():
+                    # Identifier interpolation: db_name is derived from the slug,
+                    # which the control plane constrains to
+                    # ^[a-z][a-z0-9-]+[a-z0-9]$.
+                    cur.execute(f'create database "{tenant.db_name}" owner "{owner}"')
+                else:
+                    cur.execute(f'alter database "{tenant.db_name}" owner to "{owner}"')
         finally:
             conn.close()
 
@@ -131,24 +140,40 @@ class Provisioner:
                         cur.execute(f"alter role \"{name}\" with login password %s", (password,))
                     else:
                         cur.execute(f"create role \"{name}\" with login password %s", (password,))
-                    # Tenant isolation is not a convention: every role is denied
-                    # CONNECT on every other tenant's database by default,
-                    # because PUBLIC connect is revoked below.
-                    cur.execute(f'grant connect on database "{tenant.db_name}" to "{name}"')
+        # CONNECT is granted in `_revoke_public`, after the database exists.
+        # Tenant isolation is not a convention: every role is denied CONNECT on
+        # every other tenant's database, because PUBLIC connect is revoked there.
+        finally:
+            conn.close()
+
+    def _grant_connect(self, tenant: Tenant) -> None:
+        """CONNECT for this tenant's four roles, and nobody else's."""
+        conn = self._admin_connection()
+        try:
+            with conn.cursor() as cur:
+                for role in ROLES:
+                    cur.execute(
+                        f'grant connect on database "{tenant.db_name}" '
+                        f'to "{tenant.role_name(role)}"'
+                    )
         finally:
             conn.close()
 
     def install_tenant_schema(self, tenant: Tenant) -> None:
+        """Applied as `owner`, so every object it creates it also owns."""
         from fracture.canon.schema import tenant_ddl_scripts
 
-        dsn = self.control.settings.tenant_dsn(tenant.db_name)
+        dsn = self.control.tenant_dsn(tenant, "owner")
         with db.connect(dsn) as conn:
             for name, sql in tenant_ddl_scripts():
                 log.debug("applying %s to %s", name, tenant.slug)
                 db.run_script(conn, sql)
 
     def _apply_grants(self, tenant: Tenant) -> None:
-        dsn = self.control.settings.tenant_dsn(tenant.db_name)
+        # Granted by `owner`: only the object owner can grant on its objects, and
+        # doing it as superuser would work today and silently stop working the
+        # moment the platform runs without one.
+        dsn = self.control.tenant_dsn(tenant, "owner")
         with db.connect(dsn) as conn:
             with conn.cursor() as cur:
                 for role in ROLES:
@@ -172,7 +197,7 @@ class Provisioner:
         finally:
             admin.close()
 
-        dsn = self.control.settings.tenant_dsn(tenant.db_name)
+        dsn = self.control.tenant_dsn(tenant, "owner")
         with db.connect(dsn) as conn, conn.cursor() as cur:
             cur.execute("revoke all on schema public from public")
             loader = tenant.role_name("loader")

@@ -73,3 +73,19 @@ create table if not exists recon.source_variance (
 
 create index if not exists recon_source_variance_entity
   on recon.source_variance (entity, observed_at desc);
+
+-- Each invocation of the check suite is one run. Without this, "how many checks
+-- passed" counts every check ever evaluated, which grows on each rebuild and
+-- makes a pack's assurance section irreproducible.
+alter table recon.result add column if not exists run_id uuid;
+
+create index if not exists recon_result_run on recon.result (run_id);
+
+create or replace view recon.latest_result as
+  select r.*
+    from recon.result r
+   where r.run_id = (
+     select run_id from recon.result
+      where run_id is not null
+      order by evaluated_at desc limit 1
+   );

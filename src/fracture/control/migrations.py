@@ -117,7 +117,9 @@ class Migrator:
         checksum = sha256_bytes(sql.encode("utf-8"))
         if self.already_applied(tenant, version, checksum):
             return TenantMigrationResult(tenant.slug, version, True, skipped=True)
-        dsn = self.control.settings.tenant_dsn(tenant.db_name)
+        # As `owner`: the DDL role, and the role that owns the objects being
+        # migrated (spec 3.3).
+        dsn = self.control.tenant_dsn(tenant, "owner")
         try:
             with db.connect(dsn) as conn:
                 db.run_script(conn, sql)

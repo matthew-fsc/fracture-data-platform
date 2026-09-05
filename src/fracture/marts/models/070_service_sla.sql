@@ -17,9 +17,13 @@ with events as (
    order by firm_id, service_event_id, recorded_at desc
 ),
 measured as (
+  -- Elapsed time for a still-open event is measured to the pack's system time,
+  -- never to now(). Using the wall clock would make the same pack produce a
+  -- different SLA figure on every rebuild, which silently voids the
+  -- byte-identical reissue guarantee in spec 6.3.
   select e.*,
-         coalesce(e.closed_at, now()) - e.opened_at as elapsed,
-         extract(epoch from (coalesce(e.closed_at, now()) - e.opened_at)) / 3600.0
+         coalesce(e.closed_at, %(system_time)s) - e.opened_at as elapsed,
+         extract(epoch from (coalesce(e.closed_at, %(system_time)s) - e.opened_at)) / 3600.0
            as elapsed_hours,
          e.closed_at is null as still_open
     from events e

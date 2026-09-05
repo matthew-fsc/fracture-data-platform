@@ -197,7 +197,12 @@ def rebuild_from_artifacts(
     for uri in uris:
         envelope = read_envelope(store.get(uri))
         table = ensure_raw_table(conn, envelope["source_id"], envelope["stream"])
-        load_id = uuid.UUID(uri.rsplit("-", 1)[-1].split(".")[0])
+        if not envelope.get("load_id"):
+            raise AdapterError(
+                f"artifact {uri} predates load_id capture in the envelope; "
+                "it cannot be rebuilt without guessing which load it was"
+            )
+        load_id = uuid.UUID(envelope["load_id"])
         extracted_at = dt.datetime.fromisoformat(envelope["extracted_at"])
         rows = [
             (

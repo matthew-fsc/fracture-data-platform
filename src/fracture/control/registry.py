@@ -455,7 +455,7 @@ class ControlPlane:
                 """
                 insert into control.pack_run
                   (tenant_id, period, system_time, status, supersedes)
-                values (%s, daterange(%s,%s,'[)'), %s, 'building', %s)
+                values (%s, daterange(%s,%s,'[]'), %s, 'building', %s)
                 returning pack_run_id
                 """,
                 (tenant.tenant_id, period_start, period_end, system_time, supersedes),
@@ -638,12 +638,16 @@ def _tenant_from_row(row: dict[str, Any]) -> Tenant:
 
 
 def _pack_run_from_row(row: dict[str, Any]) -> PackRun:
+    # Postgres normalises a date range to half-open, so the stored upper bound is
+    # the day after the period ends. PackRun.period_end is the inclusive end
+    # everywhere in Python; converting here keeps that single meaning, rather
+    # than leaving callers to remember which end they were handed.
     period = row["period"]
     return PackRun(
         pack_run_id=row["pack_run_id"],
         tenant_id=row["tenant_id"],
         period_start=period.lower,
-        period_end=period.upper,
+        period_end=period.upper - dt.timedelta(days=1),
         system_time=row["system_time"],
         status=row["status"],
         content_hash=bytes(row["content_hash"]) if row["content_hash"] else None,

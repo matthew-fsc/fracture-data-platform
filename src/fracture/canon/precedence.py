@@ -91,7 +91,14 @@ def material_variance(
         a, b = existing[column], incoming[column]
         if a is None or b is None:
             if a is not b:
-                out.append({"column": column, "existing": a, "incoming": b, "variance_pct": None})
+                out.append(
+                    {
+                        "column": column,
+                        "existing": _jsonable(a),
+                        "incoming": _jsonable(b),
+                        "variance_pct": None,
+                    }
+                )
             continue
         if isinstance(a, (int, float, Decimal)) and isinstance(b, (int, float, Decimal)):
             a_d, b_d = Decimal(str(a)), Decimal(str(b))
@@ -110,8 +117,28 @@ def material_variance(
                 )
             continue
         if a != b:
-            out.append({"column": column, "existing": str(a), "incoming": str(b), "variance_pct": None})
+            out.append(
+                {
+                    "column": column,
+                    "existing": _jsonable(a),
+                    "incoming": _jsonable(b),
+                    "variance_pct": None,
+                }
+            )
     return out
+
+
+def _jsonable(value: Any) -> Any:
+    """Variance detail is stored as jsonb, so dates and Decimals become text.
+
+    Without this a variance on a date column raises inside the writer, which
+    would turn a finding into a failed load.
+    """
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, Decimal):
+        return float(value)
+    return str(value)
 
 
 def ordered_sources(entity: str) -> Sequence[str]:

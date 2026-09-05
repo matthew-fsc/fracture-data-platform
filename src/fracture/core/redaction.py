@@ -16,39 +16,52 @@ from typing import Any, Iterable
 MASK = "[REDACTED]"
 
 #: Substrings that make a key sensitive regardless of the value it carries.
+#: Matched against the key with separators stripped, so `tax_id`, `taxId` and
+#: `TAX-ID` all hit the same entry -- source APIs use all three, and a redactor
+#: that only knows snake_case leaks every camelCase field it is shown.
 SENSITIVE_KEY_PARTS: tuple[str, ...] = (
     "ssn",
-    "social_security",
-    "tax_id",
-    "tin",
-    "ein",
-    "dob",
-    "date_of_birth",
-    "birth_date",
-    "account_number",
-    "acct_no",
+    "socialsecurity",
+    "taxid",
+    "dateofbirth",
+    "birthdate",
+    "accountnumber",
+    "acctno",
     "acctnum",
     "routing",
-    "card",
     "passport",
-    "drivers_license",
-    "license_number",
+    "driverslicense",
+    "licensenumber",
     "email",
     "phone",
     "mobile",
     "street",
-    "address_line",
+    "addressline",
     "postal",
-    "zip",
     "password",
     "secret",
-    "token",
-    "api_key",
     "apikey",
     "credential",
     "authorization",
-    "private_key",
+    "privatekey",
 )
+
+#: Short tokens that would over-match as substrings ("tin" inside "routing",
+#: "card" inside "discard"). Matched against whole words only, after splitting
+#: the key on separators and camelCase boundaries.
+SENSITIVE_KEY_TOKENS: frozenset[str] = frozenset(
+    {"tin", "ein", "dob", "zip", "card", "token", "pan", "iban", "bsb", "sortcode"}
+)
+
+_WORD_SPLIT = re.compile(r"[^A-Za-z0-9]+|(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _normalise_key(key: str) -> str:
+    return "".join(ch for ch in key.lower() if ch.isalnum())
+
+
+def _key_tokens(key: str) -> frozenset[str]:
+    return frozenset(part.lower() for part in _WORD_SPLIT.split(key) if part)
 
 #: Value shapes that are sensitive wherever they appear.
 VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -69,14 +82,18 @@ class Redactor:
         sensitive_keys: Iterable[str] = SENSITIVE_KEY_PARTS,
         patterns: Iterable[tuple[str, re.Pattern[str]]] = VALUE_PATTERNS,
         mask: str = MASK,
+        sensitive_tokens: Iterable[str] = SENSITIVE_KEY_TOKENS,
     ) -> None:
-        self._keys = tuple(k.lower() for k in sensitive_keys)
+        self._keys = tuple(_normalise_key(k) for k in sensitive_keys)
+        self._tokens = frozenset(t.lower() for t in sensitive_tokens)
         self._patterns = tuple(patterns)
         self._mask = mask
 
     def is_sensitive_key(self, key: str) -> bool:
-        lowered = key.lower()
-        return any(part in lowered for part in self._keys)
+        normalised = _normalise_key(key)
+        if any(part in normalised for part in self._keys):
+            return True
+        return bool(_key_tokens(key) & self._tokens)
 
     def scrub_text(self, text: str) -> str:
         for _, pattern in self._patterns:

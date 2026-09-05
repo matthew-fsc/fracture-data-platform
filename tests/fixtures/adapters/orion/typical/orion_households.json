@@ -1,0 +1,18 @@
+{
+ "households": [
+  {
+   "createdOn": "2019-04-02",
+   "householdId": "H-001",
+   "name": "The Okafor Household",
+   "tier": "core",
+   "updatedAt": "2026-01-05"
+  },
+  {
+   "createdOn": "2016-11-20",
+   "householdId": "H-002",
+   "name": "The Lindqvist Household",
+   "tier": "private_client",
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

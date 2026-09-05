@@ -91,9 +91,15 @@ select pb.firm_id,
   join totals t on t.firm_id = pb.firm_id
  where pb.as_of_date = (select as_of from latest);
 
--- Fully loaded margin: revenue less directly attributed cost less an allocated
--- share of everything else. Allocating on revenue is a choice, and it is stated
--- in `allocation_basis` on each cost line rather than assumed here.
+-- Fully loaded margin: revenue less every cost, allocated somewhere.
+--
+-- "Fully loaded" means no cost falls out. Directly attributed payroll is spread
+-- across the producer's own households by their share of that producer's
+-- revenue; everything else is spread across the firm by revenue share. A cost
+-- that can be attributed to nobody still lands in the allocated pool rather
+-- than vanishing -- the earlier version of this model computed a direct-cost
+-- total and then never used it, which flattered every margin figure downstream
+-- and raised nothing.
 drop table if exists mart.margin;
 create table mart.margin as
 with costs as (
@@ -104,12 +110,63 @@ with costs as (
      and (superseded_at is null or superseded_at > %(system_time)s)
    order by firm_id, cost_id, recorded_at desc
 ),
-cost_by_quarter as (
+costs_q as (
   select firm_id,
          (date_trunc('quarter', period_start) + interval '3 month - 1 day')::date as period_end,
-         sum(amount) filter (where allocation_basis = 'direct')  as direct_cost,
-         sum(amount) filter (where allocation_basis <> 'direct') as allocated_cost
+         person_id, amount, allocation_basis
     from costs
+),
+revenue as (
+  select firm_id, period_end, household_id,
+         sum(billed_amount) as billed_amount,
+         sum(collected_amount) as collected_amount
+    from mart.billed_revenue
+   group by 1, 2, 3
+),
+firm_revenue as (
+  select firm_id, period_end, sum(billed_amount) as firm_billed
+    from revenue group by 1, 2
+),
+-- Which producer held which household in the period, for attributing payroll.
+book as (
+  select r.firm_id, r.period_end, r.household_id, ba.producer_id, r.billed_amount
+    from revenue r
+    join mart.book_assignment_effective ba
+      on ba.firm_id = r.firm_id
+     and ba.household_id = r.household_id
+     and ba.valid_from <= r.period_end
+     and (ba.valid_to is null or ba.valid_to > r.period_end)
+),
+producer_revenue as (
+  select firm_id, period_end, producer_id, sum(billed_amount) as producer_billed
+    from book group by 1, 2, 3
+),
+-- Direct costs that name a person we can resolve to a producer with a book.
+attributable_direct as (
+  select c.firm_id, c.period_end, c.person_id as producer_id, sum(c.amount) as amount
+    from costs_q c
+   where c.allocation_basis = 'direct'
+     and c.person_id is not null
+     and exists (
+       select 1 from producer_revenue pr
+        where pr.firm_id = c.firm_id and pr.period_end = c.period_end
+          and pr.producer_id = c.person_id and pr.producer_billed > 0
+     )
+   group by 1, 2, 3
+),
+-- Everything else: indirect costs, plus direct costs naming nobody we can place.
+pooled as (
+  select c.firm_id, c.period_end, sum(c.amount) as amount
+    from costs_q c
+   where not (
+     c.allocation_basis = 'direct'
+     and c.person_id is not null
+     and exists (
+       select 1 from producer_revenue pr
+        where pr.firm_id = c.firm_id and pr.period_end = c.period_end
+          and pr.producer_id = c.person_id and pr.producer_billed > 0
+     )
+   )
    group by 1, 2
 ),
 direct_time as (
@@ -128,44 +185,84 @@ direct_time as (
    where f.household_id is not null
    group by 1, 2, 3
 ),
-revenue as (
-  select firm_id, period_end, household_id,
-         sum(billed_amount) as billed_amount,
-         sum(collected_amount) as collected_amount
-    from mart.billed_revenue
+household_producer_cost as (
+  select b.firm_id, b.period_end, b.household_id,
+         sum(ad.amount * b.billed_amount / nullif(pr.producer_billed, 0)) as producer_cost
+    from book b
+    join producer_revenue pr
+      on pr.firm_id = b.firm_id and pr.period_end = b.period_end
+     and pr.producer_id = b.producer_id
+    join attributable_direct ad
+      on ad.firm_id = b.firm_id and ad.period_end = b.period_end
+     and ad.producer_id = b.producer_id
    group by 1, 2, 3
-),
-firm_revenue as (
-  select firm_id, period_end, sum(billed_amount) as firm_billed
-    from revenue group by 1, 2
 )
 select r.firm_id,
        r.period_end,
        r.household_id,
        r.billed_amount,
        r.collected_amount,
-       coalesce(dt.service_cost, 0)                                  as direct_service_cost,
+       coalesce(dt.service_cost, 0)                                     as direct_service_cost,
+       round(coalesce(hpc.producer_cost, 0), 2)                         as producer_cost,
        round(
-         coalesce(cq.allocated_cost, 0)
-         * (r.billed_amount / nullif(fr.firm_billed, 0)), 2
-       )                                                             as allocated_cost,
+         coalesce(p.amount, 0) * (r.billed_amount / nullif(fr.firm_billed, 0)), 2
+       )                                                                as allocated_cost,
        round(
          r.billed_amount
          - coalesce(dt.service_cost, 0)
-         - coalesce(cq.allocated_cost, 0) * (r.billed_amount / nullif(fr.firm_billed, 0)),
+         - coalesce(hpc.producer_cost, 0)
+         - coalesce(p.amount, 0) * (r.billed_amount / nullif(fr.firm_billed, 0)),
          2
-       )                                                             as loaded_margin,
+       )                                                                as loaded_margin,
        round(
          (r.billed_amount
           - coalesce(dt.service_cost, 0)
-          - coalesce(cq.allocated_cost, 0) * (r.billed_amount / nullif(fr.firm_billed, 0)))
+          - coalesce(hpc.producer_cost, 0)
+          - coalesce(p.amount, 0) * (r.billed_amount / nullif(fr.firm_billed, 0)))
          / nullif(r.billed_amount, 0), 6
-       )                                                             as loaded_margin_pct
+       )                                                                as loaded_margin_pct
   from revenue r
   join firm_revenue fr on fr.firm_id = r.firm_id and fr.period_end = r.period_end
-  left join cost_by_quarter cq on cq.firm_id = r.firm_id and cq.period_end = r.period_end
+  left join pooled p on p.firm_id = r.firm_id and p.period_end = r.period_end
+  left join household_producer_cost hpc
+    on hpc.firm_id = r.firm_id and hpc.period_end = r.period_end
+   and hpc.household_id = r.household_id
   left join direct_time dt
     on dt.firm_id = r.firm_id and dt.period_end = r.period_end
    and dt.household_id = r.household_id;
 
 create index on mart.margin (firm_id, period_end);
+
+-- Every cost in a billed quarter must land somewhere in mart.margin. This table
+-- exists so the assertion below can say which quarter dropped how much, rather
+-- than the margin simply being too good.
+drop table if exists mart.cost_allocation_check;
+create table mart.cost_allocation_check as
+with costs as (
+  select distinct on (firm_id, cost_id)
+         firm_id, cost_id, period_start, amount
+    from canon.cost_line
+   where recorded_at <= %(system_time)s
+     and (superseded_at is null or superseded_at > %(system_time)s)
+   order by firm_id, cost_id, recorded_at desc
+),
+booked as (
+  select firm_id,
+         (date_trunc('quarter', period_start) + interval '3 month - 1 day')::date as period_end,
+         sum(amount) as cost_total
+    from costs group by 1, 2
+),
+allocated as (
+  select firm_id, period_end,
+         sum(producer_cost) + sum(allocated_cost) as allocated_total
+    from mart.margin group by 1, 2
+)
+select b.firm_id, b.period_end, b.cost_total,
+       coalesce(a.allocated_total, 0) as allocated_total,
+       b.cost_total - coalesce(a.allocated_total, 0) as unallocated
+  from booked b
+  left join allocated a on a.firm_id = b.firm_id and a.period_end = b.period_end
+ where exists (
+   select 1 from mart.margin m
+    where m.firm_id = b.firm_id and m.period_end = b.period_end
+ );

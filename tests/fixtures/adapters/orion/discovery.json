@@ -1,0 +1,38 @@
+[
+ {
+  "name": "accounts",
+  "primary_key": [
+   "accountId"
+  ],
+  "incremental_on": "updatedAt"
+ },
+ {
+  "name": "households",
+  "primary_key": [
+   "householdId"
+  ],
+  "incremental_on": "updatedAt"
+ },
+ {
+  "name": "positions",
+  "primary_key": [
+   "accountId",
+   "asOfDate"
+  ],
+  "incremental_on": "asOfDate"
+ },
+ {
+  "name": "representatives",
+  "primary_key": [
+   "repId"
+  ],
+  "incremental_on": null
+ },
+ {
+  "name": "service_requests",
+  "primary_key": [
+   "requestId"
+  ],
+  "incremental_on": "openedAt"
+ }
+]

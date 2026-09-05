@@ -1,0 +1,15 @@
+{
+ "schedules": [
+  {
+   "basis": "aum",
+   "billingTiming": "arrears",
+   "calcMethod": "tiered",
+   "effectiveFrom": "2018-01-01",
+   "effectiveTo": null,
+   "frequency": "quarterly",
+   "name": "Standard Tiered Advisory",
+   "scheduleId": "SCHED-STD",
+   "valuationRule": "period_end"
+  }
+ ]
+}

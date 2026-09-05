@@ -1,0 +1,60 @@
+[
+ {
+  "entity": "account",
+  "natural_key": "A-001",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "account_type": "custodial",
+   "household_id": "H-001",
+   "status": "open"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-001|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-001",
+   "as_of_date": "2026-03-31",
+   "cash_value": "42000.00",
+   "currency": "USD",
+   "market_value": "1450000.00"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-001",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-001",
+   "name": "The Okafor Household",
+   "onboarded_on": "2019-04-02",
+   "segment": "core"
+  },
+  "valid_from": "2019-04-02",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

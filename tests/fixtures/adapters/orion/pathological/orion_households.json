@@ -1,0 +1,18 @@
+{
+ "households": [
+  {
+   "createdOn": "1994-01-03",
+   "householdId": "H-\u00dc01",
+   "name": "M\u00e9nage Dubois-O'Brien",
+   "tier": null,
+   "updatedAt": "2026-01-05"
+  },
+  {
+   "createdOn": "2020-02-29",
+   "householdId": "H-002",
+   "name": "\u5c71\u7530\u30db\u30fc\u30eb\u30c7\u30a3\u30f3\u30b0\u30b9",
+   "tier": "institutional",
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

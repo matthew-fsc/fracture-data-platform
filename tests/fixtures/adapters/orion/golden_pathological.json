@@ -1,0 +1,253 @@
+[
+ {
+  "entity": "account",
+  "natural_key": "A-003",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-003",
+   "account_subtype": null,
+   "account_type": "custodial",
+   "billable": true,
+   "closed_on": null,
+   "custodian": "fidelity",
+   "household_id": null,
+   "opened_on": "2025-12-31",
+   "party_id": null,
+   "status": "open"
+  },
+  "valid_from": "2025-12-31",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "account",
+  "natural_key": "A-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "account_subtype": "trust",
+   "account_type": "custodial",
+   "billable": false,
+   "closed_on": "2026-02-28",
+   "custodian": "schwab",
+   "household_id": "H-\u00dc01",
+   "opened_on": "1994-01-10",
+   "party_id": "P-\u00dc01",
+   "status": "closed"
+  },
+  "valid_from": "1994-01-10",
+  "valid_to": "2026-02-28",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-003|2019-06-30",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-003",
+   "as_of_date": "2019-06-30",
+   "billable_value": null,
+   "cash_value": "0",
+   "currency": "USD",
+   "market_value": "0.00"
+  },
+  "valid_from": "2019-06-30",
+  "valid_to": "2019-07-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-\u00dc01|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "as_of_date": "2026-03-31",
+   "billable_value": "0.00",
+   "cash_value": "0",
+   "currency": "EUR",
+   "market_value": "-18500.25"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": "2026-04-01",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "book_assignment",
+  "natural_key": "ADV-002|H-\u00dc01|1994-01-03",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-\u00dc01",
+   "producer_id": "ADV-002",
+   "split_pct": "40"
+  },
+  "valid_from": "1994-01-03",
+  "valid_to": "2025-11-30",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-002",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-002",
+   "name": "\u5c71\u7530\u30db\u30fc\u30eb\u30c7\u30a3\u30f3\u30b0\u30b9",
+   "onboarded_on": "2020-02-29",
+   "segment": "institutional"
+  },
+  "valid_from": "2020-02-29",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-\u00dc01",
+   "name": "M\u00e9nage Dubois-O'Brien",
+   "onboarded_on": "1994-01-03",
+   "segment": null
+  },
+  "valid_from": "1994-01-03",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "household_member",
+  "natural_key": "H-\u00dc01|P-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-\u00dc01",
+   "party_id": "P-\u00dc01",
+   "role": "primary"
+  },
+  "valid_from": "1994-01-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "party",
+  "natural_key": "P-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "country": "FR",
+   "display_name": "\u00c9mile Dubois-O'Brien",
+   "legal_name": "\u00c9mile Dubois-O'Brien",
+   "party_id": "P-\u00dc01",
+   "party_type": "individual",
+   "tax_id_last4": "6789"
+  },
+  "valid_from": "1994-01-10",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    2
+   ]
+  ]
+ },
+ {
+  "entity": "producer",
+  "natural_key": "ADV-002",
+  "firm_id": "FIX",
+  "values": {
+   "display_name": "Kwame Osei",
+   "hire_date": "2008-03-17",
+   "party_id": null,
+   "producer_id": "ADV-002",
+   "producer_type": "advisor",
+   "term_date": "2025-11-30"
+  },
+  "valid_from": "2008-03-17",
+  "valid_to": "2025-11-30",
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "producer_crosswalk",
+  "natural_key": "orion|KO002",
+  "firm_id": "FIX",
+  "values": {
+   "confidence": 1.0,
+   "external_key": "KO002",
+   "producer_id": "ADV-002",
+   "reviewed_by": "system:orion",
+   "system": "orion"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "service_event",
+  "natural_key": "SVC-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": null,
+   "actor_producer_id": "ADV-002",
+   "closed_at": null,
+   "event_type": "onboarding",
+   "household_id": "H-\u00dc01",
+   "opened_at": "2025-10-01T08:00:00+00:00",
+   "service_event_id": "SVC-\u00dc02",
+   "sla_target_hours": "240"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

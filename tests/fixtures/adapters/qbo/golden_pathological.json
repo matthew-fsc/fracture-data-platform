@@ -1,0 +1,223 @@
+[
+ {
+  "entity": "cash_receipt",
+  "natural_key": "PMT-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "amount": "900.00",
+   "household_id": "H-\u00dc01",
+   "method": null,
+   "receipt_id": "PMT-\u00dc02",
+   "received_on": "2026-06-30"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "cost_line",
+  "natural_key": "EXP-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "allocation_basis": "revenue",
+   "amount": "-3200.00",
+   "category": "vendor",
+   "cost_id": "EXP-\u00dc02",
+   "period_end": "2026-03-31",
+   "period_start": "2026-03-31",
+   "person_id": null,
+   "vendor": "Fournisseur G\u00e9n\u00e9rique"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "fte_allocation",
+  "natural_key": "TIME-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "hourly_cost": "95",
+   "hours": "0.25",
+   "household_id": null,
+   "period_end": "2025-12-31",
+   "period_start": "2025-12-31",
+   "person_id": "ADV-002",
+   "producer_id": null
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "invoice",
+  "natural_key": "INV-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "currency": "EUR",
+   "due_on": null,
+   "household_id": "H-\u00dc01",
+   "invoice_id": "INV-\u00dc02",
+   "issued_on": "2026-04-05",
+   "period_end": null,
+   "period_start": null,
+   "status": "void",
+   "total_amount": "-1250.50"
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "invoice_line",
+  "natural_key": "INV-\u00dc02|1",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "amount": "-2000.50",
+   "description": "Fee cr\u00e9dit \u2014 \u00fcberzahlung",
+   "invoice_id": "INV-\u00dc02",
+   "line_no": 1,
+   "revenue_event_id": null
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "invoice_line",
+  "natural_key": "INV-\u00dc02|2",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": null,
+   "amount": "750.00",
+   "description": "Reinstated portion",
+   "invoice_id": "INV-\u00dc02",
+   "line_no": 2,
+   "revenue_event_id": null
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "receipt_application",
+  "natural_key": "PMT-\u00dc02|INV-001",
+  "firm_id": "FIX",
+  "values": {
+   "amount_applied": "500.00",
+   "applied_on": "2026-06-30",
+   "invoice_id": "INV-001",
+   "receipt_id": "PMT-\u00dc02"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "receipt_application",
+  "natural_key": "PMT-\u00dc02|INV-\u00dc02",
+  "firm_id": "FIX",
+  "values": {
+   "amount_applied": "400.00",
+   "applied_on": "2026-06-30",
+   "invoice_id": "INV-\u00dc02",
+   "receipt_id": "PMT-\u00dc02"
+  },
+  "valid_from": null,
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "revenue_event",
+  "natural_key": "BILLED-INV-\u00dc02-1",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "amount": "-2000.50",
+   "basis_amount": null,
+   "currency": "EUR",
+   "event_type": "fee_accrual",
+   "household_id": "H-\u00dc01",
+   "origin": "source",
+   "period_end": "2026-04-05",
+   "period_start": "2026-04-05",
+   "producer_id": null,
+   "revenue_event_id": "BILLED-INV-\u00dc02-1"
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "revenue_event",
+  "natural_key": "BILLED-INV-\u00dc02-2",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": null,
+   "amount": "750.00",
+   "basis_amount": null,
+   "currency": "EUR",
+   "event_type": "fee_accrual",
+   "household_id": "H-\u00dc01",
+   "origin": "source",
+   "period_end": "2026-04-05",
+   "period_start": "2026-04-05",
+   "producer_id": null,
+   "revenue_event_id": "BILLED-INV-\u00dc02-2"
+  },
+  "valid_from": "2026-04-05",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

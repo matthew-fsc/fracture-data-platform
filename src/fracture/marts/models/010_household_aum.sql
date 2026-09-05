@@ -28,7 +28,10 @@ select b.firm_id,
        a.household_id,
        b.as_of_date,
        sum(b.market_value)                                          as total_value,
-       sum(b.market_value) filter (where a.billable)                as billable_value,
+       -- Coalesced: a household whose every account is non-billable has a
+       -- billable basis of zero, not an unknown one. Leaving it null lets it
+       -- vanish out of downstream sums without anything looking wrong.
+       coalesce(sum(b.market_value) filter (where a.billable), 0)   as billable_value,
        count(*)                                                     as account_count,
        count(*) filter (where not a.billable)                       as non_billable_accounts,
        array_agg(distinct b.account_id order by b.account_id)       as account_ids

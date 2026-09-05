@@ -159,6 +159,12 @@ ASSERTIONS: tuple[tuple[str, str, str], ...] = (
         "group by 1 having abs(sum(book_share) - 1) > 0.001 limit 5",
     ),
     (
+        "mart.cost_allocation_check",
+        "every cost in a billed quarter must be allocated somewhere in mart.margin",
+        "select firm_id, period_end, cost_total, allocated_total, unallocated "
+        "from mart.cost_allocation_check where abs(unallocated) > 1.00 limit 5",
+    ),
+    (
         "mart.sla_summary",
         "breach rate must be a fraction",
         "select firm_id, period_end, event_type, breach_rate from mart.sla_summary "

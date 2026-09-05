@@ -4,8 +4,6 @@
 -- deliberately not installed; `control_plane_isolation` in the test suite
 -- asserts that.
 
-create extension if not exists "pgcrypto";
-
 create schema if not exists control;
 set search_path = control, public;
 
