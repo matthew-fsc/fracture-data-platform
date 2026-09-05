@@ -22,7 +22,7 @@ source system's own reported totals, pins a pack, verifies it reissues
 byte-identically, checks every figure opens to raw records, and renders the pack
 to `out/pack.html`.
 
-    make test          # 237 tests
+    make test          # 240 tests
     make demo-small    # the same path in about 4 seconds
 
 ## Shape
@@ -41,7 +41,7 @@ to `out/pack.html`.
       orchestration/  Dagster assets, tenant as a dynamic partition
     reporting/packs/  pack definitions: SQL in git, diffable
     infra/terraform/  network, control-plane, tenant, compute, reporting
-    tests/            237 tests, every adapter through the same five gates
+    tests/            240 tests, every adapter through the same five gates
 
 ## The four claims, and where each is tested
 
