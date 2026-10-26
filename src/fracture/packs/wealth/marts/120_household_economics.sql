@@ -19,7 +19,9 @@ book as (
   select distinct on (firm_id, household_id)
          firm_id, household_id, producer_id
     from mart.book_assignment_effective
-   order by firm_id, household_id, valid_from desc
+   -- producer_id last so two assignments sharing a valid_from resolve the
+   -- same way every build. This reads a mart, which has no canon_id.
+   order by firm_id, household_id, valid_from desc, producer_id
 ),
 finding as (
   select u.firm_id, u.household_id, u.finding, u.expected_amount, u.variance_amount,
@@ -59,7 +61,7 @@ select m.firm_id,
     select distinct on (firm_id, household_id) firm_id, household_id, name, segment
       from canon.household
      where superseded_at is null
-     order by firm_id, household_id, recorded_at desc
+     order by firm_id, household_id, recorded_at desc, canon_id desc
   ) hh on hh.firm_id = m.firm_id and hh.household_id = m.household_id;
 
 create index on mart.household_economics (firm_id, loaded_margin);

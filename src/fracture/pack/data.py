@@ -218,11 +218,19 @@ def collect(
               left join (
                 select distinct on (firm_id, household_id) firm_id, household_id, name
                   from canon.household where superseded_at is null
-                 order by firm_id, household_id, recorded_at desc
+                 -- canon_id breaks a tie on recorded_at. Without it `distinct on`
+                 -- picks either row, so a household renamed twice in one load
+                 -- shows a different name between two builds of the same pack.
+                 order by firm_id, household_id, recorded_at desc, canon_id desc
               ) h on h.firm_id = u.firm_id and h.household_id = u.household_id
              where u.period_end = %s
                and u.finding in ('never_invoiced','billed_below_schedule','billed_above_schedule')
-             order by abs(u.variance_amount) desc
+             -- The ordering has to be total. `abs(variance_amount) desc` alone
+             -- leaves ties, and a tie that straddles the limit swaps which row
+             -- is published: the pack stops reissuing byte-identically, which
+             -- is the one guarantee it is sold on. Found by a reproducibility
+             -- test that failed on roughly one synthetic estate in four.
+             order by abs(u.variance_amount) desc, u.firm_id, u.household_id, u.finding
              limit 12
             """,
             (period_end,),

@@ -14,7 +14,7 @@ with accounts as (
     from canon.account
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, account_id, recorded_at desc
+   order by firm_id, account_id, recorded_at desc, canon_id desc
 ),
 balances as (
   select distinct on (firm_id, account_id, as_of_date)
@@ -22,7 +22,7 @@ balances as (
     from canon.balance_snapshot
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, account_id, as_of_date, recorded_at desc
+   order by firm_id, account_id, as_of_date, recorded_at desc, canon_id desc
 )
 select b.firm_id,
        a.household_id,

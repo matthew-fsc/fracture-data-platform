@@ -10,7 +10,7 @@ with invoices as (
     from canon.invoice
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, invoice_id, recorded_at desc
+   order by firm_id, invoice_id, recorded_at desc, canon_id desc
 ),
 applied as (
   select r.firm_id, r.invoice_id, sum(r.amount_applied) as collected,
@@ -21,7 +21,7 @@ applied as (
         from canon.receipt_application
        where recorded_at <= %(system_time)s
          and (superseded_at is null or superseded_at > %(system_time)s)
-       order by firm_id, receipt_id, invoice_id, recorded_at desc
+       order by firm_id, receipt_id, invoice_id, recorded_at desc, canon_id desc
     ) r
    group by r.firm_id, r.invoice_id
 )

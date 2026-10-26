@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from psycopg2.extensions import connection as PGConnection
 
@@ -314,12 +314,43 @@ def verify_reproducible(
         system_time=original.system_time,
     )
     if rebuilt.content_hash != original.content_hash:
+        # A hash on its own says the pack moved and nothing about what moved,
+        # which is useless at 3am and useless in a client conversation. The two
+        # runs are both in pack.figure, so name the figures.
+        with control.tenant_connection(tenant, "transform") as conn:
+            moved = restatement_delta(
+                conn, pack_run_id, rebuilt.pack_run.pack_run_id
+            )
         raise PackIntegrityError(
             f"pack {pack_run_id} did not reproduce at system_time "
             f"{original.system_time.isoformat()}: "
             f"{original.content_hash.hex()[:16]} != {rebuilt.content_hash.hex()[:16]}"
+            f"; {len(moved)} figure(s) moved: {_describe_moved(moved)}"
         )
     return rebuilt.content_hash
+
+
+def _describe_moved(moved: Sequence[Mapping[str, Any]], limit: int = 8) -> str:
+    """One line per moved figure, truncated. Written for a log line and a
+    stack trace, which is where a reproducibility failure is actually read."""
+    if not moved:
+        return (
+            "no figure differs, so the difference is in ordering, formatting or "
+            "the set of figures published -- compare pack.figure row counts"
+        )
+    parts = [
+        "{section}/{metric}{firm} {before} -> {after}".format(
+            section=row.get("section"),
+            metric=row.get("metric"),
+            firm=f"[{row['firm_id']}]" if row.get("firm_id") else "",
+            before=row.get("earlier_value"),
+            after=row.get("later_value"),
+        )
+        for row in moved[:limit]
+    ]
+    if len(moved) > limit:
+        parts.append(f"... and {len(moved) - limit} more")
+    return "; ".join(parts)
 
 
 def restatement_delta(

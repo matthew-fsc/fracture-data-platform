@@ -186,6 +186,72 @@ create index if not exists source_fingerprint_lookup
   on source_fingerprint (tenant_id, firm_id, source_id, observed_at desc);
 
 -- Every human query against tenant data (spec section 9), disclosable on request.
+-- --------------------------------------------------------------------------
+-- The code-side gate
+-- --------------------------------------------------------------------------
+--
+-- The data-side AI boundary says no model computes a figure with financial
+-- consequence. This table is the other half: when an agent writes code, what
+-- did the gate say about it, and which human let it through.
+--
+-- It exists because "agent-assisted engineering with human decision gates" is
+-- a claim a client's security review will test, and the only answer that
+-- survives that conversation is a queryable record. A passing CI run is not
+-- one: it proves the tree was clean, not that a person decided to ship it.
+create table if not exists change_gate (
+  change_gate_id   uuid primary key default gen_random_uuid(),
+  -- The revision the gate ran against. Nullable only because a gate run on a
+  -- dirty working tree has no revision, and hiding that is worse than storing
+  -- it.
+  revision         text,
+  branch           text,
+  -- sha256 over the inspected source, and over the findings. Both, because an
+  -- unchanged tree with a changed report means the policy set moved.
+  tree_hash        bytea not null,
+  report_hash      bytea not null,
+  policy_count     int not null,
+  violation_count  int not null,
+  verdict          text not null,              -- pass|fail
+  -- Who wrote the change and who approved it. An agent cannot be the approver;
+  -- the constraint below is the whole point of the table.
+  authored_by      text not null,
+  author_kind      text not null,              -- human|agent
+  approved_by      text,
+  approved_at      timestamptz,
+  summary          text not null default '',
+  report           jsonb not null,
+  created_at       timestamptz not null default now(),
+  constraint gate_verdict_valid check (verdict in ('pass','fail')),
+  constraint gate_author_kind_valid check (author_kind in ('human','agent')),
+  -- An agent-authored change needs a named human approver. Enforced here
+  -- rather than in the tool that writes the row, because a rule that lives in
+  -- one code path lasts until the second code path.
+  constraint agent_change_needs_human_approval check (
+    author_kind <> 'agent'
+    or (approved_by is not null and approved_at is not null)
+  ),
+  -- Approval and the approver's identity arrive together or not at all.
+  constraint approval_is_complete check (
+    (approved_by is null) = (approved_at is null)
+  ),
+  -- An agent cannot approve its own work. The data-side boundary already
+  -- refuses a service account confirming its own proposal; this is the same
+  -- rule for code.
+  constraint approver_is_not_the_author check (
+    approved_by is null or approved_by <> authored_by
+  ),
+  -- A failing gate is never an approved change. Recording the run is fine and
+  -- expected; marking it approved is not.
+  constraint failed_gate_is_not_approved check (
+    verdict = 'pass' or approved_by is null
+  )
+);
+
+create index if not exists change_gate_by_revision on change_gate (revision)
+  where revision is not null;
+create index if not exists change_gate_unapproved on change_gate (created_at)
+  where approved_by is null;
+
 create table if not exists access_log (
   access_id        bigserial primary key,
   at               timestamptz not null default now(),

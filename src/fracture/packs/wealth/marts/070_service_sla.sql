@@ -14,7 +14,7 @@ with events as (
     from canon.service_event
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, service_event_id, recorded_at desc
+   order by firm_id, service_event_id, recorded_at desc, canon_id desc
 ),
 measured as (
   -- Elapsed time for a still-open event is measured to the pack's system time,

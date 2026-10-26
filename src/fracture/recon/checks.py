@@ -169,7 +169,7 @@ def check_billed_against_invoices(
                      firm_id, invoice_id, period_end, issued_on, total_amount
                 from canon.invoice
                where superseded_at is null
-               order by firm_id, invoice_id, recorded_at desc
+               order by firm_id, invoice_id, recorded_at desc, canon_id desc
             ) i
            group by 1, 2
         ),
@@ -211,7 +211,7 @@ def check_collected_against_receipts(
                  firm_id, receipt_id, invoice_id, amount_applied
             from canon.receipt_application
            where superseded_at is null
-           order by firm_id, receipt_id, invoice_id, recorded_at desc
+           order by firm_id, receipt_id, invoice_id, recorded_at desc, canon_id desc
         ),
         expected as (
           select a.firm_id, b.period_end, sum(a.amount_applied) as expected

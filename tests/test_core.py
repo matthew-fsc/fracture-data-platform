@@ -20,7 +20,7 @@ from fracture.core.redaction import Redactor, RedactingFilter, contains_pii, red
 @pytest.mark.parametrize(
     "value",
     [
-        "SSN is 123-45-6789",
+        "SSN is 900-45-6789",
         "contact amara@example.com about it",
         "call +1 (415) 555-0142",
         "Bearer eyJhbGciOiJIUzI1NiJ9",
@@ -44,7 +44,7 @@ def test_sensitive_keys_are_redacted_by_name(key):
 
 
 def test_redaction_reaches_into_nested_structures():
-    payload = {"party": {"contacts": [{"email": "a@b.com", "ssn": "123-45-6789"}]}}
+    payload = {"party": {"contacts": [{"email": "a@b.com", "ssn": "900-45-6789"}]}}
     scrubbed = redact(payload)
     assert scrubbed["party"]["contacts"][0]["email"] == "[REDACTED]"
     assert scrubbed["party"]["contacts"][0]["ssn"] == "[REDACTED]"
@@ -68,9 +68,9 @@ def test_logging_filter_scrubs_the_formatted_message():
     handler.addFilter(RedactingFilter())
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
-    logger.info("mapping party %s with ssn %s", "P-1", "123-45-6789")
+    logger.info("mapping party %s with ssn %s", "P-1", "900-45-6789")
     assert records
-    assert "123-45-6789" not in records[0].getMessage()
+    assert "900-45-6789" not in records[0].getMessage()
 
 
 def test_redactor_reports_masked_values_as_clean():
@@ -133,7 +133,7 @@ def test_an_unparseable_date_raises():
 
 
 def test_last4_keeps_only_four_digits():
-    assert last4("123-45-6789") == "6789"
+    assert last4("900-45-6789") == "6789"
     assert last4("6789") == "6789"
     assert last4("12") is None
     assert last4(None) is None

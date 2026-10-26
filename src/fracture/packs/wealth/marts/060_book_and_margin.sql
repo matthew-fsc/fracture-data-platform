@@ -14,7 +14,7 @@ select distinct on (firm_id, producer_id, household_id, valid_from)
   from canon.book_assignment
  where recorded_at <= %(system_time)s
    and (superseded_at is null or superseded_at > %(system_time)s)
- order by firm_id, producer_id, household_id, valid_from, recorded_at desc;
+ order by firm_id, producer_id, household_id, valid_from, recorded_at desc, canon_id desc;
 
 create index on mart.book_assignment_effective (firm_id, household_id, valid_from);
 
@@ -26,7 +26,7 @@ with producers as (
     from canon.producer
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, producer_id, recorded_at desc
+   order by firm_id, producer_id, recorded_at desc, canon_id desc
 ),
 aum as (
   select h.firm_id, h.as_of_date, h.household_id, h.billable_value, h.total_value,
@@ -108,7 +108,7 @@ with costs as (
     from canon.cost_line
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, cost_id, recorded_at desc
+   order by firm_id, cost_id, recorded_at desc, canon_id desc
 ),
 costs_q as (
   select firm_id,
@@ -180,7 +180,7 @@ direct_time as (
         from canon.fte_allocation
        where recorded_at <= %(system_time)s
          and (superseded_at is null or superseded_at > %(system_time)s)
-       order by firm_id, person_id, period_start, household_id, recorded_at desc
+       order by firm_id, person_id, period_start, household_id, recorded_at desc, canon_id desc
     ) f
    where f.household_id is not null
    group by 1, 2, 3
@@ -244,7 +244,7 @@ with costs as (
     from canon.cost_line
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, cost_id, recorded_at desc
+   order by firm_id, cost_id, recorded_at desc, canon_id desc
 ),
 booked as (
   select firm_id,

@@ -20,7 +20,7 @@ with schedules as (
     from canon.fee_schedule
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, schedule_id, recorded_at desc
+   order by firm_id, schedule_id, recorded_at desc, canon_id desc
 ),
 tiers as (
   select distinct on (firm_id, schedule_id, tier_seq)
@@ -29,7 +29,7 @@ tiers as (
     from canon.fee_tier
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, schedule_id, tier_seq, recorded_at desc
+   order by firm_id, schedule_id, tier_seq, recorded_at desc, canon_id desc
 ),
 assignments as (
   select distinct on (firm_id, scope_type, scope_id, schedule_id, valid_from)
@@ -37,7 +37,7 @@ assignments as (
     from canon.schedule_assignment
    where recorded_at <= %(system_time)s
      and (superseded_at is null or superseded_at > %(system_time)s)
-   order by firm_id, scope_type, scope_id, schedule_id, valid_from, recorded_at desc
+   order by firm_id, scope_type, scope_id, schedule_id, valid_from, recorded_at desc, canon_id desc
 ),
 -- Billing periods: quarter ends present in the AUM mart. Advance billing would
 -- value at period start; `valuation_rule` carries that and is honoured below.
