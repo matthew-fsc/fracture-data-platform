@@ -80,3 +80,66 @@ What would move this: per-tenant environment management becoming the primary
 source of operational pain, which is the spec's own trigger. At that point
 SQLMesh's restatement semantics are worth more than dbt's hiring pool, because
 restatement is the thing this platform already models by hand.
+
+## 6. How far the chassis/pack seam should go
+
+**Position: cut now, one pack behind it, and do not build a third
+speculatively.**
+
+Three registries that were in the chassis have moved onto the pack manifest:
+the canonical entity keys, which entities carry business time, which columns
+are numeric, and source precedence. Two more have not, and both are real:
+
+- **`VARIANCE_COLUMNS`** in `canon/precedence.py` still lives in the chassis,
+  keyed by entity name. An entity with no entry is never flagged for source
+  variance, which is the right default for a pack whose sources do not overlap
+  and becomes wrong the moment two services sources both write invoices.
+- **The wealth console's `collect()`** reads marts by name and is correctly in
+  the pack, but `pack/charts.py` still carries `SHORT_STEP`, a wealth-specific
+  label map, as the default argument of `waterfall()`. The services pack passes
+  its own; the default is a wealth default sitting in the chassis.
+
+The argument against cutting the seam at all is honest and was close to
+winning: a seam with one implementation behind it is usually in the wrong
+place, and you learn the right boundary from the second case, not the first. If
+the next three engagements had all been wealth, the time would have bought
+nothing.
+
+What decided it was reversibility rather than foresight. A directory move is
+cheap now and nearly free to redo; a per-client fork is cheap now and very
+expensive later, because forks diverge silently and the chassis is the only
+asset that compounds. The services pack then paid for the seam immediately by
+finding three registries that were still domain-coupled.
+
+## 7. Assurance policies that are mechanical but not yet written
+
+**Position: these three are worth adding; none is written.**
+
+Each would have caught something in this repository's history:
+
+- **A new mart model must have at least one assertion.** The model that
+  shipped without one was `080_consolidated`, and the defect it hid was a
+  cost-allocation total that excluded payroll.
+- **A dashboard view must be reachable from a department, and every department
+  must have a view.** Enforced today by `shell.render()` raising at runtime and
+  by one test; a static check would catch it at commit.
+- **A column added to a pack's DDL must be in its entity registry if it is
+  numeric.** The AI boundary refuses an unconfirmed proposal only in columns
+  the registry names, so a numeric column added to the table and not to the
+  registry is a column a model could write. The inverse is already tested
+  (`test_every_pack_entity_declares_its_numeric_columns_against_real_columns`);
+  this direction is not.
+
+## 8. Whether the services pack should carry a bespoke adapter
+
+**Position: no, until a client's practice management system needs one.**
+
+It loads today through the config-driven CSV adapter with a mapping config and
+no Python, which is what that adapter was built for and the cheapest possible
+proof that the seam works. A bespoke adapter for a named system — Practice
+Engine, Intapp, Aderant, Karbon — is 60 hours by the assessment's own
+reckoning and should be built against a real instance with a real discovery
+snapshot, not against a guess at its schema.
+
+What would move this: an engagement where the practice management system has
+no usable export, which is the case the file-drop assumption does not cover.

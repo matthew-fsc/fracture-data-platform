@@ -136,3 +136,117 @@ assertions are listed in `fracture.marts.runner.ASSERTIONS`.
 
 The dashboards read current state. The board pack reads a pinned system time and
 reissues byte-identically; these do not, and are not a substitute for it.
+
+---
+
+# The professional services pack
+
+The same design constraint, restated for a practice. A four-partner firm and a
+forty-partner firm cannot be compared on fees, so every measure below is a
+rate, a per-hour figure, a day count or a percentage.
+
+## Five stages, four gaps
+
+Wealth has three yields and two gaps. A practice has five stages and four,
+because it carries inventory that wealth does not and prices the work
+separately from recording it.
+
+| Stage | Definition |
+| --- | --- |
+| Recorded at card | Every recorded hour × the rate-card rate for the grade that recorded it |
+| Billable at card | As above, for hours the timekeeper marked chargeable |
+| Entitled | What the engagement may bill: billable × card × (1 − discount) for time and materials; the apportioned agreed fee for fixed, capped or retainer work |
+| Billed | What the invoice actually went out at |
+| Collected | What arrived |
+
+| Gap | Owner | What it means |
+| --- | --- | --- |
+| Write-off at entry | Whoever approved the work | Hours recorded that never became billable: out of scope, goodwill, training, admin, rework. Happens in the timesheet, not on an invoice, which is why most practices never see it |
+| Pricing | Whoever agreed the fee | Discount against the card, or a fixed fee that differs from the time it consumed. Signed both ways: a fixed fee above its time value is a gain, and that is the profitable fixed-fee engagement |
+| Realisation | The engagement partner | What the bill went out at against what could have been billed |
+| Collection | Finance | What has not arrived |
+
+A single "realisation" percentage collapses the middle two. That is the common
+reporting failure: it sends the engagement partner to look at a number that was
+actually set when the fee was agreed, or sends the pricing conversation to
+someone who under-billed a correctly priced engagement.
+
+**The bridge must close.** `mart.realisation_bridge` publishes ten rows per
+practice and period and an assertion checks that the opening balance plus every
+signed step equals the closing balance. The first version of the model failed
+it: the opening balance was billable hours at card, which is already net of
+write-off, so write-off was subtracted twice. A waterfall with an unaccounted
+residual reads as precision while being wrong.
+
+Over-billing is reported as its own positive step rather than netted into the
+residual, for the same reason it is in the wealth pack: an engagement billed
+above its entitlement is a refund exposure, not a windfall.
+
+## The executive measures
+
+All on `mart.firm_scorecard`, one row per practice and period.
+
+| Measure | Definition | Direction |
+| --- | --- | --- |
+| `card_rate_per_hour` | Recorded value ÷ recorded hours | — |
+| `entitled_per_hour` | Entitlement ÷ recorded hours | higher |
+| `billed_per_hour` | Billed ÷ recorded hours | higher |
+| `collected_per_hour` | Collected ÷ recorded hours | higher |
+| `writeoff_rate` | 1 − billable value ÷ recorded value | lower |
+| `pricing_rate` | Entitlement ÷ billable value at full card | higher |
+| `realisation_rate` | Billed ÷ entitlement | higher |
+| `collection_rate` | Collected ÷ billed | higher |
+| `utilisation` | Billable hours ÷ the timekeeper's own monthly target | higher |
+| `entry_realisation` | Billable hours ÷ recorded hours | higher |
+| `wip_days` | Unbilled entitlement ÷ the period's daily entitlement rate | lower |
+| `debtor_days` | Invoice-value-weighted days outstanding | lower |
+| `lockup_days` | WIP days + debtor days | lower |
+| `margin_pct` | (Billed − fully loaded cost) ÷ billed | higher |
+| `fee_per_head` | Billed ÷ timekeeper count | higher |
+
+**Every per-hour figure uses recorded hours, not billable hours.** An hour
+written off at entry still consumed the practice's capacity, and a comparison
+about capacity that excludes it flatters whoever writes off the most.
+
+**Utilisation is measured against each timekeeper's own target**, apportioned
+monthly, not against a calendar year. A part-time or newly joined person
+measured against a calendar year reads as underperforming, which makes the
+number useless for the conversation it exists to support. The scorecard once
+divided an already-monthly target by twelve again, inflating utilisation
+twelvefold; the assertion that utilisation must be a rate caught it.
+
+**Debtor days are weighted by invoice value**, not averaged across invoices.
+One large old invoice beside twenty small fresh ones is a lockup problem that
+an unweighted mean hides. Overdue is measured against each client's agreed
+terms, not a firm-wide default, because the firm-wide default is the number
+everyone quotes and nobody has agreed to.
+
+**Margin is on what was billed**, not on entitlement. An engagement that failed
+to bill its entitlement has a realisation problem and a margin problem, and
+conflating them loses the first. Cost is fully loaded: labour at each
+timekeeper's loaded cost rate, plus directly attributable costs, plus pooled
+overhead allocated on recorded hours. Allocated on hours rather than on
+revenue, because revenue-weighted allocation flatters the engagements that are
+already the most profitable. `mart.cost_allocation_check` asserts every pooled
+pound lands on exactly one engagement.
+
+## The six views
+
+| View | Owner | What it answers |
+| --- | --- | --- |
+| Executive | Managing partner, board | Which practice, on nine normalised measures |
+| Realisation | Engagement partners | Where billable time went, and which engagements are thinnest |
+| People and capacity | Head of people, resourcing | Who is full, who is yielding, and the difference |
+| Cash and lockup | Finance | Which leg of lockup, and whose it is |
+| Pipeline and delivery | Managing partner, business development | The weighted forward book, and what is past its date |
+| Data and assurance | Platform team | Whether the other five can be defended |
+
+The capacity view plots billable utilisation against realised yield over fully
+loaded cost. Below 1.0x, an hour of that person's time loses money at the rates
+it was sold at, and being busy makes that worse rather than better — which is
+the one reading utilisation alone cannot produce.
+
+Pipeline weighting is a flat published factor per stage, stated in the mart
+rather than tuned. A factor fitted to past conversion would be a model
+producing a figure with financial consequence, which the platform does not
+permit.

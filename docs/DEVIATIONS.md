@@ -187,3 +187,91 @@ bug readers blame themselves for.
   KPI table carries a prior-period value, but only the executive view uses it.
 - **Current state only.** These read live marts. They are deliberately not
   pinned to a system time and are not a substitute for the issued pack.
+
+---
+
+## Additions after the first phase
+
+These are departures from the spec introduced when the platform was generalised
+from a wealth-management consolidator into Fracture's delivery chassis. Each is
+a deliberate change rather than an omission.
+
+### The spec assumes one domain; the platform now carries two
+
+Spec sections 3 and 5 describe `canon_<entity>` as a fixed set of
+wealth-management entities. That set is now a per-pack declaration
+(`docs/PACKS.md`). The chassis holds the bitemporal machinery, lineage,
+precedence arbitration and reconciliation; the entity set, the mart models and
+the assertions belong to a pack.
+
+**Consequence:** `canon/writer.py` no longer contains a table of entity keys.
+It is handed one by the pack the tenant was provisioned against, recorded on
+`control.tenant.pack`. A tenant cannot be migrated into another pack's schema
+by accident because the DDL fan-out groups by that column.
+
+### The one-platform-firm rule became data
+
+Spec 3.2 states exactly one platform firm per tenant, implemented as a check
+constraint listing `platform|addon` and a partial unique index. Both are wealth
+rules: a professional services engagement has one practice and several clients,
+and neither vocabulary is wrong.
+
+They were not deleted. Deleting them would have moved a database guarantee into
+application code, which is the opposite of what this platform claims. The
+vocabulary and its cardinality are now rows in `control.pack_firm_role`, seeded
+from the pack registry, enforced per tenant by a trigger on `tenant_firm` that
+reads the tenant's pack.
+
+**Consequence:** a pack that is registered but not seeded cannot have firms
+added to its tenants. That is the intended failure: an unseeded pack means the
+control plane and the code disagree about what a firm can be.
+
+### A code-side gate the spec does not describe
+
+Spec section 8 bounds AI to the data plane. Nothing in the spec covers agent-
+authored code, which is how this platform is actually built.
+`assurance/` and `control.change_gate` close that gap: nine mechanical policies
+over the tree, a content-hashed report, and a row tying an agent-authored change
+to the human who approved it, with the approval rules as database constraints.
+
+See `docs/ASSURANCE.md`.
+
+### Reproducibility defects found while generalising
+
+Three, all of the same family — a figure that was correct on most data and
+wrong on some:
+
+1. **A non-total ordering under a limit.** `order by abs(variance_amount) desc
+   limit 12` in a pack section. Two households tied at the cut-off could swap
+   between builds, so the pack stopped reissuing byte-identically on roughly
+   one synthetic estate in four. Fixed by making the ordering total; prevented
+   by assurance policy P9.
+2. **Fifteen `distinct on` orderings ending in `recorded_at`.** That column
+   defaults to `now()`, one value per statement, so every row of a batch insert
+   ties on it and the pick among tied rows was arbitrary. All now carry
+   `canon_id`.
+3. **A shadowed test fixture key.** The pack fixture spread `**built_marts`
+   last, overwriting `system_time` with the mart build's earlier timestamp, so
+   every reissue assertion compared two different instants. Still-open service
+   events aged a second or two between them and the p90 elapsed figure flipped
+   whenever it landed on a rounding boundary. The guarantee the platform is sold
+   on was being tested by luck about three runs in four. The fixture now asserts
+   its own key is not shadowed.
+
+`verify_reproducible` now names the figures that moved rather than printing two
+hashes, because a hash on its own is useless at 3am and useless in a client
+conversation.
+
+### What is still untested
+
+Unchanged from the first phase, and still true: the Terraform modules were
+never `fmt`-ed, `validate`-d or `plan`-ned, because no `terraform` binary was
+available. Neon, RDS, S3, KMS and Secrets Manager are all unexercised; the
+local artifact store mirrors the S3 key layout exactly and is what the tests
+use.
+
+New to this phase: the services pack has been exercised only against its own
+synthetic practice through the config-driven CSV adapter. No real practice
+management system has been read, and its discovery snapshot does not exist.
+Treat the pack's coverage figures in an assessment as the model's capacity, not
+as a measured fold-in.

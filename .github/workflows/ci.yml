@@ -50,11 +50,29 @@ jobs:
       - name: Tests
         run: python -m pytest -q
 
+      - name: Assurance gate
+        # The code-side gate, before anything else that could be influenced by
+        # a tree we would not ship. Nine policies; a blocking violation fails
+        # the build.
+        run: python -m fracture.cli assure
+
       - name: Demo, end to end
         # The fixture-scale run exercises the same path as the full demo:
         # provision, load, map, build marts, reconcile, pin a pack, verify it
         # reissues byte-identically, and check every figure opens to raw.
         run: python scripts/demo.py --scale small --reset
+
+      - name: Professional services demo, end to end
+        # The second pack through the same chassis. If the seam between chassis
+        # and pack were in the wrong place, this is the step that would break.
+        run: python scripts/demo_services.py --scale small --reset
+
+      - name: The assessment is computable for both packs
+        # Offering one is sold as a fixed fee derived from a coverage manifest.
+        # If it stops computing, the quote goes back to being a guess.
+        run: |
+          python -m fracture.cli assess orion redtail qbo addepar --pack wealth
+          python -m fracture.cli assess generic_csv qbo --pack services
 
       - name: Adapter fixtures are current
         # Regenerating must be a no-op. A drifted golden file means a mapping
