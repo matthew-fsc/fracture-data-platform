@@ -165,7 +165,7 @@ class Provisioner:
 
         dsn = self.control.tenant_dsn(tenant, "owner")
         with db.connect(dsn) as conn:
-            for name, sql in tenant_ddl_scripts():
+            for name, sql in tenant_ddl_scripts(tenant.pack):
                 log.debug("applying %s to %s", name, tenant.slug)
                 db.run_script(conn, sql)
 

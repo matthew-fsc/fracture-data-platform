@@ -168,11 +168,32 @@ class Migrator:
             )
         return run
 
-    def rebuild_schema_everywhere(self, success_threshold: float = DEFAULT_SUCCESS_THRESHOLD) -> MigrationRun:
-        """Re-apply the full tenant DDL. Every script is `create ... if not exists`
-        or `create or replace`, so this repairs drift rather than destroying it."""
+    def rebuild_schema_everywhere(
+        self, success_threshold: float = DEFAULT_SUCCESS_THRESHOLD
+    ) -> MigrationRun:
+        """Re-apply the full tenant DDL, per pack. Every script is
+        `create ... if not exists` or `create or replace`, so this repairs drift
+        rather than destroying it.
+
+        Tenants are grouped by pack because the DDL is no longer one script: a
+        wealth tenant must never receive the professional-services model, and
+        the version string has to name which schema was applied or a drifted
+        tenant looks migrated.
+        """
         from fracture.canon.schema import ddl_checksum, tenant_ddl_scripts
 
-        sql = "\n".join(s for _, s in tenant_ddl_scripts())
-        version = f"ddl-{ddl_checksum().hex()[:12]}"
-        return self.fan_out(version, sql, success_threshold=success_threshold)
+        by_pack: dict[str, list[Tenant]] = {}
+        for tenant in self.target_tenants():
+            by_pack.setdefault(tenant.pack, []).append(tenant)
+
+        combined = MigrationRun(version="ddl")
+        for pack_name, tenants in sorted(by_pack.items()):
+            sql = "\n".join(s for _, s in tenant_ddl_scripts(pack_name))
+            version = f"ddl-{pack_name}-{ddl_checksum(pack_name).hex()[:12]}"
+            run = self.fan_out(
+                version, sql, tenants=tenants, success_threshold=success_threshold
+            )
+            combined.results.extend(run.results)
+            combined.version = version if len(by_pack) == 1 else "ddl-multi-pack"
+        log.info("schema rebuild across %d pack(s): %s", len(by_pack), combined.summary())
+        return combined

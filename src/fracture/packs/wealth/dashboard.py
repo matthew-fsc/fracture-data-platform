@@ -1,7 +1,8 @@
-"""Departmental operating dashboards.
+"""Departmental operating views for the wealth pack.
 
 Six views, one per group that owns a set of decisions. The board pack answers
-"how did the platform do"; these answer "which firm, and what do I do on Monday".
+"how did the platform do"; these answer "which firm, and what do I do on
+Monday".
 
 Every view compares firms on a normalised measure. That is the whole design
 constraint: the platform firm bills nearly five times the smallest add-on, so
@@ -12,25 +13,32 @@ $1.7bn firm on the same axis.
 
 from __future__ import annotations
 
-import html
 import json
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from fracture.pack.dashboard_data import DashboardData
-
-TEMPLATES = Path(__file__).parent / "templates"
-SERIES = ("--series-1", "--series-2", "--series-3")
-
-
-@dataclass(frozen=True)
-class Department:
-    key: str
-    index: str
-    title: str
-    owner: str
-    lede: str
+from fracture.pack.charts import (
+    SERIES,
+    Department,
+    bps,
+    compact,
+    count,
+    delta_chip,
+    e,
+    firm_colour,
+    fmt_unit,
+    grouped_bars,
+    hbar_group,
+    hours,
+    legend,
+    lines,
+    money,
+    pct,
+    pp,
+    scatter,
+    waterfall,
+)
+from fracture.packs.wealth.data import DashboardData, collect
+from fracture.pack.shell import Chrome
 
 
 DEPARTMENTS: tuple[Department, ...] = (
@@ -73,475 +81,6 @@ DEPARTMENTS: tuple[Department, ...] = (
         "estate is under lineage.",
     ),
 )
-
-
-# -- formatting --------------------------------------------------------------
-
-
-def e(value: Any) -> str:
-    return html.escape("" if value is None else str(value), quote=True)
-
-
-def money(value: float | None, places: int = 0, dash: str = "—") -> str:
-    if value is None:
-        return dash
-    sign = "-" if value < 0 else ""
-    return f"{sign}${abs(value):,.{places}f}"
-
-
-def compact(value: float | None, dash: str = "—") -> str:
-    if value is None:
-        return dash
-    sign = "-" if value < 0 else ""
-    v = abs(value)
-    for cut, suffix, places in ((1e9, "bn", 2), (1e6, "m", 1), (1e3, "k", 1)):
-        if v >= cut:
-            return f"{sign}${v / cut:,.{places}f}{suffix}"
-    return f"{sign}${v:,.0f}"
-
-
-def pct(value: float | None, places: int = 1, dash: str = "—") -> str:
-    return dash if value is None else f"{value * 100:.{places}f}%"
-
-
-def pp(value: float | None, places: int = 1, dash: str = "—") -> str:
-    """Percentage points, signed. Used for variance against the platform."""
-    if value is None:
-        return dash
-    return f"{value * 100:+.{places}f}pp"
-
-
-def bps(value: float | None, places: int = 1, dash: str = "—") -> str:
-    return dash if value is None else f"{value:,.{places}f}bps"
-
-
-def count(value: float | None, dash: str = "—") -> str:
-    return dash if value is None else f"{value:,.0f}"
-
-
-def hours(value: float | None, dash: str = "—") -> str:
-    if value is None:
-        return dash
-    if value >= 48:
-        return f"{value / 24:,.1f}d"
-    return f"{value:,.0f}h"
-
-
-UNIT_FORMAT: dict[str, Callable[[float | None], str]] = {
-    "bps": bps, "ratio": pct, "usd": lambda v: money(v, 0),
-    "count": count, "hours": hours,
-}
-
-
-def fmt_unit(value: float | None, unit: str) -> str:
-    return UNIT_FORMAT.get(unit, lambda v: count(v))(value)
-
-
-def _nice(value: float) -> float:
-    import math
-
-    if value <= 0:
-        return 1.0
-    mag = 10 ** math.floor(math.log10(value))
-    for step in (1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10):
-        if value <= step * mag:
-            return step * mag
-    return 10 * mag
-
-
-# -- reusable marks ----------------------------------------------------------
-
-
-def firm_colour(firm_id: str, order: Sequence[str]) -> str:
-    idx = order.index(firm_id) if firm_id in order else 0
-    return f"var({SERIES[idx % len(SERIES)]})"
-
-
-def hbar_group(
-    rows: Sequence[tuple[str, float | None, str]],
-    peer: float | None = None,
-    formatter: Callable[[float | None], str] = pct,
-    peer_label: str = "platform",
-) -> str:
-    """Horizontal comparison bars with the platform figure marked on each track.
-
-    The peer mark is the point: a firm at 78% means nothing until you can see
-    the platform is at 91% without looking anything up.
-    """
-    values = [v for _, v, _ in rows if v is not None]
-    if not values:
-        return '<p class="cap">no data</p>'
-    peak = max(values + ([peer] if peer is not None else []))
-    peak = peak if peak > 0 else 1.0
-    out = []
-    for name, value, colour in rows:
-        width = 0 if value is None else max(0.0, min(100.0, value / peak * 100))
-        mark = ""
-        if peer is not None and peer > 0:
-            mark = (
-                f'<span class="peer-mark" style="left: {min(99.5, peer / peak * 100):.2f}%" '
-                f'title="{e(peer_label)} {e(formatter(peer))}"></span>'
-            )
-        out.append(
-            '<div class="hbar">'
-            f'<span class="name">{e(name)}</span>'
-            f'<span class="track">{mark}<span class="fill" style="width:{width:.2f}%;'
-            f'background:{colour}"></span></span>'
-            f'<span class="val">{e(formatter(value))}</span>'
-            "</div>"
-        )
-    if peer is not None:
-        out.append(
-            '<div class="hbar"><span class="name" style="color:var(--faint)">'
-            f'{e(peer_label)}</span><span class="track" style="background:transparent;'
-            'border-top:1px dashed var(--rule-strong);height:1px"></span>'
-            f'<span class="val" style="color:var(--muted)">{e(formatter(peer))}</span></div>'
-        )
-    return f'<div class="hbars">{"".join(out)}</div>'
-
-
-#: Step labels shortened for the per-firm bridges, which render at roughly half
-#: the width of the consolidated one and collide at full length.
-SHORT_STEP = {
-    "Schedule entitlement": "Schedule",
-    "Never invoiced": "Never inv.",
-    "Billed below schedule": "Below sch.",
-    "Billed above schedule": "Above sch.",
-    "Not collected": "Uncollected",
-}
-
-
-def waterfall(
-    steps: Sequence[dict[str, Any]], width: int = 560, height: int = 230,
-    short_labels: bool = False,
-) -> str:
-    """The yield bridge, drawn to one scale.
-
-    Totals sit on the baseline; losses and gains float between the running
-    total before and after. Every bar is labelled with its own value, because a
-    waterfall whose steps you have to subtract by eye is a decoration.
-    """
-    if not steps:
-        return ""
-    pad_l, pad_r, pad_t, pad_b = 46, 12, 16, 44
-    plot_w = width - pad_l - pad_r
-    plot_h = height - pad_t - pad_b
-
-    running = 0.0
-    bars: list[dict[str, Any]] = []
-    for step in steps:
-        if step["step_kind"] == "total":
-            value = float(step["bps"] or 0)
-            label = SHORT_STEP.get(step["label"], step["label"]) if short_labels else step["label"]
-            bars.append({"lo": 0.0, "hi": value, "kind": "total", "label": label,
-                         "text": bps(value), "delta": None})
-            running = value
-        else:
-            delta = float(step["delta_bps"] or 0)
-            lo, hi = (running + delta, running) if delta < 0 else (running, running + delta)
-            label = SHORT_STEP.get(step["label"], step["label"]) if short_labels else step["label"]
-            bars.append({"lo": lo, "hi": hi, "kind": step["step_kind"], "label": label,
-                         "text": f"{delta:+.2f}", "delta": delta})
-            running += delta
-
-    y_max = _nice(max(b["hi"] for b in bars) * 1.12)
-    slot = plot_w / len(bars)
-    bar_w = min(52.0, slot * 0.6)
-
-    parts: list[str] = []
-    for frac in (0, 0.5, 1.0):
-        gy = pad_t + plot_h * (1 - frac)
-        parts.append(
-            f'<line class="grid-line" x1="{pad_l}" y1="{gy:.1f}" x2="{width - pad_r}" y2="{gy:.1f}"/>'
-            f'<text class="axis-label" x="{pad_l - 7}" y="{gy + 3.5:.1f}" text-anchor="end">'
-            f"{y_max * frac:.0f}</text>"
-        )
-
-    def y(v: float) -> float:
-        return pad_t + plot_h * (1 - v / y_max)
-
-    colour_for = {"total": "var(--accent)", "loss": "var(--crit)", "gain": "var(--good)"}
-    for i, bar in enumerate(bars):
-        cx = pad_l + slot * (i + 0.5)
-        x = cx - bar_w / 2
-        top, bottom = y(bar["hi"]), y(bar["lo"])
-        h = max(2.0, bottom - top)
-        parts.append(
-            f'<rect x="{x:.1f}" y="{top:.1f}" width="{bar_w:.1f}" height="{h:.1f}" rx="2" '
-            f'fill="{colour_for[bar["kind"]]}" '
-            f'fill-opacity="{0.95 if bar["kind"] == "total" else 0.85}">'
-            f'<title>{e(bar["label"])}: {e(bar["text"])}</title></rect>'
-        )
-        parts.append(
-            f'<text class="val-label" x="{cx:.1f}" y="{top - 5:.1f}" text-anchor="middle">'
-            f'{e(bar["text"])}</text>'
-        )
-        words = str(bar["label"]).split()
-        mid = (len(words) + 1) // 2
-        line1, line2 = " ".join(words[:mid]), " ".join(words[mid:])
-        parts.append(
-            f'<text class="axis-label" x="{cx:.1f}" y="{height - 26}" text-anchor="middle">'
-            f"{e(line1)}</text>"
-        )
-        if line2:
-            parts.append(
-                f'<text class="axis-label" x="{cx:.1f}" y="{height - 15}" text-anchor="middle">'
-                f"{e(line2)}</text>"
-            )
-    parts.append(
-        f'<line class="axis-line" x1="{pad_l}" y1="{pad_t + plot_h}" '
-        f'x2="{width - pad_r}" y2="{pad_t + plot_h}"/>'
-    )
-    return (
-        f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Yield bridge from schedule entitlement to cash collected, in basis points">'
-        + "".join(parts) + "</svg>"
-    )
-
-
-def scatter(
-    points: Sequence[dict[str, Any]],
-    x_label: str,
-    y_label: str,
-    x_fmt: Callable[[float | None], str],
-    y_fmt: Callable[[float | None], str],
-    width: int = 520,
-    height: int = 320,
-    x_ref: float | None = None,
-    y_ref: float | None = None,
-) -> str:
-    """Two measures, one mark per firm, with reference lines cutting quadrants.
-
-    Used for pricing against execution, which is the one comparison that
-    separates "charges too little" from "charges correctly and fails to bill".
-    """
-    if not points:
-        return ""
-    pad_l, pad_r, pad_t, pad_b = 58, 96, 18, 46
-    plot_w = width - pad_l - pad_r
-    plot_h = height - pad_t - pad_b
-    xs = [p["x"] for p in points if p["x"] is not None]
-    ys = [p["y"] for p in points if p["y"] is not None]
-    if not xs or not ys:
-        return ""
-    x_lo, x_hi = min(xs + ([x_ref] if x_ref else [])), max(xs + ([x_ref] if x_ref else []))
-    y_lo, y_hi = min(ys + ([y_ref] if y_ref else [])), max(ys + ([y_ref] if y_ref else []))
-    x_pad = (x_hi - x_lo) * 0.28 or abs(x_hi) * 0.1 or 1
-    y_pad = (y_hi - y_lo) * 0.28 or abs(y_hi) * 0.1 or 1
-    x_lo, x_hi = x_lo - x_pad, x_hi + x_pad
-    y_lo, y_hi = y_lo - y_pad, y_hi + y_pad
-
-    def px(v: float) -> float:
-        return pad_l + plot_w * (v - x_lo) / (x_hi - x_lo)
-
-    def py(v: float) -> float:
-        return pad_t + plot_h * (1 - (v - y_lo) / (y_hi - y_lo))
-
-    parts: list[str] = []
-    for frac in (0, 0.5, 1.0):
-        gy = pad_t + plot_h * (1 - frac)
-        parts.append(
-            f'<line class="grid-line" x1="{pad_l}" y1="{gy:.1f}" x2="{pad_l + plot_w}" y2="{gy:.1f}"/>'
-        )
-        parts.append(
-            f'<text class="axis-label" x="{pad_l - 7}" y="{gy + 3.5:.1f}" text-anchor="end">'
-            f"{e(y_fmt(y_lo + (y_hi - y_lo) * frac))}</text>"
-        )
-    for frac in (0, 0.5, 1.0):
-        gx = pad_l + plot_w * frac
-        parts.append(
-            f'<text class="axis-label" x="{gx:.1f}" y="{height - 26}" text-anchor="middle">'
-            f"{e(x_fmt(x_lo + (x_hi - x_lo) * frac))}</text>"
-        )
-    if x_ref is not None:
-        parts.append(
-            f'<line class="zero-line" x1="{px(x_ref):.1f}" y1="{pad_t}" '
-            f'x2="{px(x_ref):.1f}" y2="{pad_t + plot_h}"/>'
-        )
-    if y_ref is not None:
-        parts.append(
-            f'<line class="zero-line" x1="{pad_l}" y1="{py(y_ref):.1f}" '
-            f'x2="{pad_l + plot_w}" y2="{py(y_ref):.1f}"/>'
-        )
-    for point in points:
-        if point["x"] is None or point["y"] is None:
-            continue
-        cx, cy = px(point["x"]), py(point["y"])
-        parts.append(
-            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="7" fill="{point["colour"]}" '
-            f'stroke="var(--surface)" stroke-width="2">'
-            f'<title>{e(point["label"])}: {e(x_fmt(point["x"]))} / {e(y_fmt(point["y"]))}</title>'
-            "</circle>"
-        )
-        anchor = "start" if cx < pad_l + plot_w * 0.75 else "end"
-        dx = 12 if anchor == "start" else -12
-        parts.append(
-            f'<text class="val-label" x="{cx + dx:.1f}" y="{cy + 4:.1f}" text-anchor="{anchor}">'
-            f'{e(point["label"])}</text>'
-        )
-    parts.append(
-        f'<line class="axis-line" x1="{pad_l}" y1="{pad_t + plot_h}" '
-        f'x2="{pad_l + plot_w}" y2="{pad_t + plot_h}"/>'
-    )
-    parts.append(
-        f'<text class="axis-label" x="{pad_l + plot_w / 2:.1f}" y="{height - 6}" '
-        f'text-anchor="middle">{e(x_label)}</text>'
-    )
-    parts.append(
-        f'<text class="axis-label" x="{14}" y="{pad_t + plot_h / 2:.1f}" text-anchor="middle" '
-        f'transform="rotate(-90 14 {pad_t + plot_h / 2:.1f})">{e(y_label)}</text>'
-    )
-    return (
-        f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="{e(y_label)} against {e(x_label)}, one mark per firm">'
-        + "".join(parts) + "</svg>"
-    )
-
-
-def grouped_bars(
-    categories: Sequence[str],
-    series: Sequence[tuple[str, list[float | None], str]],
-    formatter: Callable[[float | None], str] = pct,
-    width: int = 560,
-    height: int = 220,
-) -> str:
-    if not categories or not series:
-        return ""
-    pad_l, pad_r, pad_t, pad_b = 52, 10, 16, 34
-    plot_w = width - pad_l - pad_r
-    plot_h = height - pad_t - pad_b
-    flat = [v for _, vals, _ in series for v in vals if v is not None]
-    if not flat:
-        return ""
-    y_max = _nice(max(flat) * 1.15)
-    group_w = plot_w / len(categories)
-    gap = 2
-    bar_w = max(6.0, (group_w * 0.7 - gap * (len(series) - 1)) / len(series))
-
-    parts: list[str] = []
-    for frac in (0, 0.5, 1.0):
-        gy = pad_t + plot_h * (1 - frac)
-        parts.append(
-            f'<line class="grid-line" x1="{pad_l}" y1="{gy:.1f}" x2="{width - pad_r}" y2="{gy:.1f}"/>'
-            f'<text class="axis-label" x="{pad_l - 7}" y="{gy + 3.5:.1f}" text-anchor="end">'
-            f"{e(formatter(y_max * frac))}</text>"
-        )
-    for ci, category in enumerate(categories):
-        block = bar_w * len(series) + gap * (len(series) - 1)
-        start = pad_l + group_w * ci + (group_w - block) / 2
-        for si, (name, values, colour) in enumerate(series):
-            value = values[ci] if ci < len(values) else None
-            if value is None:
-                continue
-            bar_h = plot_h * (value / y_max) if y_max else 0
-            bx = start + si * (bar_w + gap)
-            by = pad_t + plot_h - bar_h
-            parts.append(
-                f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bar_w:.1f}" '
-                f'height="{max(bar_h, 1):.1f}" rx="2" fill="{colour}">'
-                f'<title>{e(name)} — {e(category)}: {e(formatter(value))}</title></rect>'
-            )
-        parts.append(
-            f'<text class="axis-label" x="{pad_l + group_w * (ci + 0.5):.1f}" y="{height - 12}" '
-            f'text-anchor="middle">{e(category)}</text>'
-        )
-    parts.append(
-        f'<line class="axis-line" x1="{pad_l}" y1="{pad_t + plot_h}" '
-        f'x2="{width - pad_r}" y2="{pad_t + plot_h}"/>'
-    )
-    return (
-        f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Grouped comparison by firm">' + "".join(parts) + "</svg>"
-    )
-
-
-def lines(
-    series: Sequence[tuple[str, list[tuple[str, float | None]], str]],
-    formatter: Callable[[float | None], str] = bps,
-    width: int = 560,
-    height: int = 210,
-) -> str:
-    if not series:
-        return ""
-    dates = [d for d, _ in series[0][1]]
-    n = len(dates)
-    if n < 2:
-        return ""
-    pad_l, pad_r, pad_t, pad_b = 52, 14, 14, 28
-    plot_w = width - pad_l - pad_r
-    plot_h = height - pad_t - pad_b
-    flat = [v for _, pts, _ in series for _, v in pts if v is not None]
-    if not flat:
-        return ""
-    y_hi = _nice(max(flat) * 1.08)
-    y_lo = 0.0
-
-    def x(i: int) -> float:
-        return pad_l + plot_w * i / (n - 1)
-
-    def y(v: float) -> float:
-        return pad_t + plot_h * (1 - (v - y_lo) / (y_hi - y_lo))
-
-    parts: list[str] = []
-    for frac in (0, 0.5, 1.0):
-        gy = pad_t + plot_h * (1 - frac)
-        parts.append(
-            f'<line class="grid-line" x1="{pad_l}" y1="{gy:.1f}" x2="{width - pad_r}" y2="{gy:.1f}"/>'
-            f'<text class="axis-label" x="{pad_l - 7}" y="{gy + 3.5:.1f}" text-anchor="end">'
-            f"{e(formatter(y_lo + (y_hi - y_lo) * frac))}</text>"
-        )
-    for name, points, colour in series:
-        d = " ".join(
-            f"{'M' if i == 0 else 'L'}{x(i):.1f},{y(v):.1f}"
-            for i, (_, v) in enumerate(points) if v is not None
-        )
-        parts.append(
-            f'<path d="{d}" fill="none" stroke="{colour}" stroke-width="2" '
-            'stroke-linejoin="round" stroke-linecap="round"/>'
-        )
-        last = [(i, v) for i, (_, v) in enumerate(points) if v is not None]
-        if last:
-            i, v = last[-1]
-            parts.append(
-                f'<circle cx="{x(i):.1f}" cy="{y(v):.1f}" r="3.5" fill="{colour}" '
-                'stroke="var(--surface)" stroke-width="1.5"/>'
-            )
-    step = max(1, (n - 1) // 4)
-    import datetime as _dt
-
-    for i in range(0, n, step):
-        label = _dt.date.fromisoformat(dates[i]).strftime("%b %y")
-        anchor = "start" if i == 0 else ("end" if i >= n - 1 else "middle")
-        parts.append(
-            f'<text class="axis-label" x="{x(i):.1f}" y="{height - 8}" '
-            f'text-anchor="{anchor}">{e(label)}</text>'
-        )
-    parts.append(
-        f'<line class="axis-line" x1="{pad_l}" y1="{pad_t + plot_h}" '
-        f'x2="{width - pad_r}" y2="{pad_t + plot_h}"/>'
-    )
-    return (
-        f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Trend by firm">' + "".join(parts) + "</svg>"
-    )
-
-
-def legend(names: Sequence[str], colours: Sequence[str]) -> str:
-    items = "".join(
-        f'<span class="item"><span class="swatch" style="background:{c}"></span>{e(n)}</span>'
-        for n, c in zip(names, colours)
-    )
-    return f'<div class="legend">{items}</div>'
-
-
-def delta_chip(value: float | None, direction: str, unit: str = "ratio") -> str:
-    """A change, coloured by whether it is good rather than by its sign."""
-    if value is None or direction == "neutral":
-        return ""
-    good = (value > 0) if direction == "higher_better" else (value < 0)
-    cls = "flat" if abs(value) < 0.0005 else ("up" if good else "down")
-    arrow = "→" if cls == "flat" else ("↑" if value > 0 else "↓")
-    return f'<span class="delta {cls}">{arrow} {abs(value) * 100:.1f}%</span>'
 
 
 # -- views -------------------------------------------------------------------
@@ -1421,110 +960,30 @@ VIEWS: dict[str, Callable[[DashboardData], str]] = {
 }
 
 
-def render(data: DashboardData) -> str:
-    css = (TEMPLATES / "dashboard.css").read_text()
+def chrome(data: DashboardData) -> Chrome:
+    """The words around the views for a wealth estate.
 
-    nav = "".join(
-        f'<button type="button" role="tab" id="tab-{d.key}" data-view="{d.key}" '
-        f'aria-controls="view-{d.key}" aria-selected="{"true" if i == 0 else "false"}">'
-        f'<span class="idx">{d.index}</span><span>{e(d.title)}</span></button>'
-        for i, d in enumerate(DEPARTMENTS)
+    A firm is identified by its AUM because that is what the reader uses to
+    place it, and the rail note states the comparability rule the whole console
+    is built on so nobody reads a rate as a total.
+    """
+    subjects = tuple(
+        f'{e(f["firm_id"])} &middot; {e(compact(f["total_aum"]))}' for f in data.firms
     )
-
-    views = []
-    for i, dept in enumerate(DEPARTMENTS):
-        body = VIEWS[dept.key](data)
-        views.append(
-            f'<section class="view" id="view-{dept.key}" role="tabpanel" '
-            f'aria-labelledby="tab-{dept.key}"{"" if i == 0 else " hidden"}>'
-            '<header class="viewhead">'
-            f"<h1>{e(dept.title)}</h1>"
-            f'<p class="lede">{e(dept.lede)}</p>'
-            f'<p class="owner">Owner: {e(dept.owner)} &middot; quarter ending '
-            f"{e(data.period_end)} &middot; {len(data.firms)} firms</p>"
-            "</header>"
-            f"{body}"
-            "</section>"
-        )
-
-    firm_lines = "".join(
-        f'<div>{e(f["firm_id"])} &middot; {e(compact(f["total_aum"]))}</div>'
-        for f in data.firms
+    return Chrome(
+        title=f"{data.tenant_name} Operating Console",
+        tenant_name=data.tenant_name,
+        period_label="quarter ending",
+        period_end=str(data.period_end),
+        generated_at=str(data.generated_at),
+        subject_label="firms",
+        subjects=subjects,
+        rail_note=(
+            "Every measure here is a rate, a per-unit figure or basis points on AUM, so "
+            "firms of different size compare directly."
+        ),
+        footer=(
+            "Yields are annualised: quarterly amounts multiplied by four over average "
+            "assets."
+        ),
     )
-
-    return f"""<title>Meridian Operating Console</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
-<style>{css}</style>
-<div class="shell">
-  <aside class="rail">
-    <div class="brand">
-      <span class="mark">Fracture Systems</span>
-      <span class="tenant">{e(data.tenant_name)}</span>
-      <span class="sub">Operating console</span>
-    </div>
-    <nav class="deptnav" role="tablist" aria-label="Departments">{nav}</nav>
-    <div class="rail-note">
-      <div><strong>Quarter ending</strong><br>{e(data.period_end)}</div>
-      <div>{firm_lines}</div>
-      <div>Every measure here is a rate, a per-unit figure or basis points on AUM, so firms
-      of different size compare directly.</div>
-    </div>
-  </aside>
-  <main class="main">
-    {"".join(views)}
-    <p class="foot">Figures are current as at {e(data.generated_at)}Z, drawn from the same
-    canonical model as the issued board pack and reconciled against each source system's own
-    reported totals. Yields are annualised: quarterly amounts multiplied by four over average
-    assets. No figure on this page was computed by a model.</p>
-  </main>
-</div>
-<script>
-(function () {{
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('.deptnav button'));
-  var views = {{}};
-  tabs.forEach(function (tab) {{
-    views[tab.dataset.view] = document.getElementById('view-' + tab.dataset.view);
-  }});
-
-  function show(key, push) {{
-    tabs.forEach(function (tab) {{
-      var on = tab.dataset.view === key;
-      tab.setAttribute('aria-selected', on ? 'true' : 'false');
-      if (views[tab.dataset.view]) views[tab.dataset.view].hidden = !on;
-    }});
-    try {{ localStorage.setItem('fracture.dept', key); }} catch (err) {{ /* private mode */ }}
-    if (push && window.history && window.history.replaceState) {{
-      window.history.replaceState(null, '', '#' + key);
-    }}
-    window.scrollTo(0, 0);
-  }}
-
-  tabs.forEach(function (tab, index) {{
-    tab.addEventListener('click', function () {{ show(tab.dataset.view, true); }});
-    tab.addEventListener('keydown', function (event) {{
-      var next = null;
-      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = tabs[index + 1];
-      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = tabs[index - 1];
-      if (next) {{ event.preventDefault(); next.focus(); show(next.dataset.view, true); }}
-    }});
-  }});
-
-  // Deep link wins over the remembered tab, so a shared URL opens where the
-  // sender meant rather than where the recipient last was.
-  var fromHash = (window.location.hash || '').replace('#', '');
-  var remembered = null;
-  try {{ remembered = localStorage.getItem('fracture.dept'); }} catch (err) {{ remembered = null; }}
-  var initial = views[fromHash] ? fromHash : (views[remembered] ? remembered : null);
-  if (initial) show(initial, false);
-}})();
-</script>
-"""
-
-
-def write(data: DashboardData, path: Path | str) -> Path:
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render(data), encoding="utf-8")
-    return target

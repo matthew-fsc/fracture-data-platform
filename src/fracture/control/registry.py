@@ -22,6 +22,7 @@ from fracture.core.config import Settings, settings as default_settings
 from fracture.core.errors import ConfigError, TenantIsolationError
 from fracture.core.logging import get_logger
 from fracture.core.secrets import SecretResolver, default_resolver
+from fracture.packs import get_pack
 from fracture.control.models import (
     DbRole,
     Motion,
@@ -69,7 +70,40 @@ class ControlPlane:
         sql = SCHEMA_SQL.read_text()
         with self.connection() as conn:
             db.run_script(conn, sql)
+        self.seed_pack_roles()
         log.info("control plane schema installed")
+
+    def seed_pack_roles(self) -> None:
+        """Push each registered pack's firm-role vocabulary into the database.
+
+        The trigger on `tenant_firm` reads this table, so until a pack is seeded
+        no firm can be added to one of its tenants. That is the intended
+        failure: an unseeded pack means the control plane and the code disagree
+        about what a firm can be, and writing firms anyway is how you end up
+        with a role nothing validates.
+        """
+        from fracture.packs import all_packs
+
+        rows = [
+            (pack.name, role, spec.max_per_tenant, spec.description)
+            for pack in all_packs()
+            for role, spec in pack.firm_roles.items()
+        ]
+        with self.connection() as conn:
+            for pack_name, role, max_per_tenant, description in rows:
+                db.execute(
+                    conn,
+                    """
+                    insert into control.pack_firm_role
+                      (pack, role, max_per_tenant, description)
+                    values (%s,%s,%s,%s)
+                    on conflict (pack, role) do update set
+                      max_per_tenant = excluded.max_per_tenant,
+                      description    = excluded.description
+                    """,
+                    (pack_name, role, max_per_tenant, description),
+                )
+        log.info("seeded %d pack firm role(s)", len(rows))
 
     # -- tenants -----------------------------------------------------------
 
@@ -84,6 +118,8 @@ class ControlPlane:
         status: TenantStatus = "provisioning",
         tenant_id: uuid.UUID | None = None,
         promoted_from: uuid.UUID | None = None,
+        pack: str | None = None,
+        engagement_code: str | None = None,
     ) -> Tenant:
         if motion == "diligence" and archive_after is None:
             # Enforced by the database too; raised here so the caller gets a
@@ -92,6 +128,7 @@ class ControlPlane:
                 "a diligence tenant must carry an archive_after date "
                 "(spec section 13: ephemeral by default, promotion is explicit)"
             )
+        resolved_pack = get_pack(pack).name
         tenant = Tenant(
             tenant_id=tenant_id or uuid.uuid4(),
             slug=slug,
@@ -104,6 +141,8 @@ class ControlPlane:
             s3_prefix=s3_prefix_for(slug),
             archive_after=archive_after,
             promoted_from=promoted_from,
+            pack=resolved_pack,
+            engagement_code=engagement_code,
         )
         with self.connection() as conn:
             db.execute(
@@ -111,12 +150,14 @@ class ControlPlane:
                 """
                 insert into control.tenant
                   (tenant_id, slug, legal_name, status, motion, kms_key_arn,
-                   db_host, db_name, s3_prefix, archive_after, promoted_from)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   db_host, db_name, s3_prefix, archive_after, promoted_from,
+                   pack, engagement_code)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 on conflict (slug) do update set
-                  legal_name = excluded.legal_name,
-                  status     = excluded.status,
-                  motion     = excluded.motion
+                  legal_name      = excluded.legal_name,
+                  status          = excluded.status,
+                  motion          = excluded.motion,
+                  engagement_code = excluded.engagement_code
                 """,
                 (
                     tenant.tenant_id,
@@ -130,6 +171,8 @@ class ControlPlane:
                     tenant.s3_prefix,
                     tenant.archive_after,
                     tenant.promoted_from,
+                    tenant.pack,
+                    tenant.engagement_code,
                 ),
             )
         log.info("registered tenant %s (%s)", tenant.slug, tenant.motion)
@@ -631,6 +674,8 @@ def _tenant_from_row(row: dict[str, Any]) -> Tenant:
         db_host=row["db_host"],
         db_name=row["db_name"],
         s3_prefix=row["s3_prefix"],
+        pack=row.get("pack") or "wealth",
+        engagement_code=row.get("engagement_code"),
         created_at=row.get("created_at"),
         archive_after=row.get("archive_after"),
         promoted_from=row.get("promoted_from"),

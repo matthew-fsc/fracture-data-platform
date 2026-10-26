@@ -197,7 +197,7 @@ def test_neutral_metrics_are_not_ranked(control, built_marts):
 
 
 def test_every_kpi_belongs_to_a_department_the_dashboard_renders(control, built_marts):
-    from fracture.pack.dashboard import DEPARTMENTS
+    from fracture.packs.wealth.dashboard import DEPARTMENTS
 
     known = {d.key for d in DEPARTMENTS}
     with control.tenant_connection(built_marts["tenant"], "transform") as conn:

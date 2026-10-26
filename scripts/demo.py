@@ -33,8 +33,8 @@ from fracture.core import db  # noqa: E402
 from fracture.core.secrets import EnvSecretResolver  # noqa: E402
 from fracture.pack import PackBuilder, assert_drillable  # noqa: E402
 from fracture.pack.data import collect  # noqa: E402
-from fracture.pack.dashboard import write as write_dashboards  # noqa: E402
-from fracture.pack.dashboard_data import collect as collect_dashboards  # noqa: E402
+from fracture.pack.shell import write as write_console  # noqa: E402
+from fracture.packs import get_pack  # noqa: E402
 from fracture.pack.render import write as write_pack  # noqa: E402
 from fracture.synth import DEMO_ESTATE, TEST_ESTATE, EstateGenerator, load_estate  # noqa: E402
 
@@ -126,8 +126,16 @@ def main() -> int:
         for f in control.list_firms(tenant)
     ]
     with control.tenant_connection(tenant, "transform") as conn:
-        dashboard_data = collect_dashboards(conn, tenant, firm_rows)
-    dash = write_dashboards(dashboard_data, Path(args.out).with_name("dashboards.html"))
+        pack = get_pack(tenant.pack)
+        board = pack.dashboard()
+        dashboard_data = board.collect(conn, tenant, firm_rows)
+    dash = write_console(
+        board.DEPARTMENTS,
+        board.VIEWS,
+        dashboard_data,
+        board.chrome(dashboard_data),
+        Path(args.out).with_name("dashboards.html"),
+    )
     print(f"   {dash}  ({dash.stat().st_size / 1024:.0f} KB)")
 
     summary = {

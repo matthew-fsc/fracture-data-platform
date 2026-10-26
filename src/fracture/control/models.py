@@ -25,6 +25,15 @@ class Tenant:
     db_host: str
     db_name: str
     s3_prefix: str
+    #: Which domain pack this tenant's schema and marts come from. Recorded so
+    #: the DDL fan-out and the mart run cannot be pointed at the wrong model,
+    #: and so a tenant provisioned for one domain is never migrated into
+    #: another by accident.
+    pack: str = "wealth"
+    #: The engagement this tenant serves, as it appears on the statement of
+    #: work. One tenant per engagement, so a diligence tenant that was never
+    #: promoted can be destroyed without touching anything else.
+    engagement_code: str | None = None
     created_at: dt.datetime | None = None
     archive_after: dt.date | None = None
     promoted_from: uuid.UUID | None = None

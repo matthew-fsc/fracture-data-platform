@@ -159,12 +159,15 @@ def cmd_pack_render(args: argparse.Namespace) -> int:
 
 
 def cmd_dashboards(args: argparse.Namespace) -> int:
-    """Render the six departmental operating views."""
-    from fracture.pack.dashboard import write
-    from fracture.pack.dashboard_data import collect
+    """Render one pack's departmental operating views for a tenant."""
+    from fracture.pack.shell import write
+    from fracture.packs import get_pack
 
     control = _control()
     tenant = control.get_tenant(args.slug)
+    pack = get_pack(getattr(args, "pack", None) or tenant.pack)
+    board = pack.dashboard()
+    collect = board.collect
     firms = [
         {
             "firm_id": f.firm_id, "legal_name": f.legal_name, "role": f.role,
@@ -174,7 +177,7 @@ def cmd_dashboards(args: argparse.Namespace) -> int:
     ]
     with control.tenant_connection(tenant, "transform") as conn:
         data = collect(conn, tenant, firms)
-    print(write(data, args.out))
+    print(write(board.DEPARTMENTS, board.VIEWS, data, board.chrome(data), args.out))
     return 0
 
 
@@ -310,6 +313,7 @@ def build_parser() -> argparse.ArgumentParser:
     dash = sub.add_parser("dashboards", help="render the departmental operating views")
     dash.add_argument("slug")
     dash.add_argument("--out", default="out/dashboards.html")
+    dash.add_argument("--pack", help="override the tenant's registered pack")
     dash.set_defaults(func=cmd_dashboards)
 
     drill = sub.add_parser("drill", help="open a figure to the records behind it")

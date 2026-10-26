@@ -39,14 +39,80 @@ create table if not exists tenant_firm (
   role             text not null,             -- platform|addon
   close_date       date,
   folded_in_at     timestamptz,
-  primary key (tenant_id, firm_id),
-  constraint firm_role_valid check (role in ('platform','addon'))
+  primary key (tenant_id, firm_id)
 );
 
--- Exactly one platform firm per tenant. A tenant with two platforms has an
--- ambiguous consolidation root and every roll-up below it is wrong.
-create unique index if not exists tenant_one_platform_firm
-  on tenant_firm (tenant_id) where role = 'platform';
+-- The firm-role vocabulary used to be a check constraint listing
+-- platform|addon, and "exactly one platform firm" a partial unique index. Both
+-- are wealth-pack rules: a consolidator tenant has one platform firm and N
+-- add-ons, while a professional-services engagement has one client and
+-- possibly several counterparties, and neither vocabulary is wrong.
+--
+-- They are not simply dropped. A rule enforced in application code is a rule
+-- that holds until someone writes a second code path, and this platform's whole
+-- claim is that isolation and integrity sit in the database. So the vocabulary
+-- and its cardinality become *data*, seeded from the pack registry, and a
+-- trigger enforces them per tenant according to that tenant's pack.
+alter table tenant_firm drop constraint if exists firm_role_valid;
+drop index if exists tenant_one_platform_firm;
+
+create table if not exists pack_firm_role (
+  pack             text not null,
+  role             text not null,
+  -- null means unlimited. 1 is how "exactly one consolidation root" is said.
+  max_per_tenant   int,
+  description      text not null default '',
+  primary key (pack, role),
+  constraint max_per_tenant_positive check (max_per_tenant is null or max_per_tenant > 0)
+);
+
+create or replace function tenant_firm_role_valid() returns trigger as $$
+declare
+  tenant_pack text;
+  allowed     int;
+  existing    int;
+begin
+  select pack into tenant_pack from control.tenant where tenant_id = new.tenant_id;
+  if tenant_pack is null then
+    raise exception 'tenant % is not registered', new.tenant_id;
+  end if;
+
+  select max_per_tenant into strict allowed
+    from control.pack_firm_role
+   where pack = tenant_pack and role = new.role;
+
+  if allowed is not null then
+    select count(*) into existing
+      from control.tenant_firm
+     where tenant_id = new.tenant_id
+       and role = new.role
+       and firm_id <> new.firm_id;
+    if existing >= allowed then
+      raise exception
+        'pack % allows at most % firm(s) with role % per tenant; % already has %',
+        tenant_pack, allowed, new.role, new.tenant_id, existing;
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists tenant_firm_role_check on tenant_firm;
+create trigger tenant_firm_role_check
+  before insert or update on tenant_firm
+  for each row execute function tenant_firm_role_valid();
+
+-- Forward-only column adds. Applied here rather than in a numbered migration
+-- because the control schema is installed idempotently on every boot, and a
+-- control plane that cannot be brought forward in place is a control plane
+-- nobody upgrades.
+alter table tenant add column if not exists pack text not null default 'wealth';
+alter table tenant add column if not exists engagement_code text;
+
+create index if not exists tenant_by_pack on tenant (pack) where status = 'active';
+create index if not exists tenant_by_engagement on tenant (engagement_code)
+  where engagement_code is not null;
 
 create table if not exists tenant_source (
   tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
