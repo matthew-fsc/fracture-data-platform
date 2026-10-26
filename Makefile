@@ -22,6 +22,12 @@ demo: ## Build the full synthetic demo and render the pack
 demo-small: ## The same path at fixture scale, in seconds
 	$(PYTHON) scripts/demo.py --scale small --reset
 
+demo-services: ## Build the professional services demo and render its console
+	$(PYTHON) scripts/demo_services.py --scale demo --reset
+
+assure: ## Run the code-side assurance gate over this tree
+	$(PYTHON) -m fracture.cli assure
+
 fixtures: ## Regenerate adapter fixtures and golden canonical output
 	$(PYTHON) scripts/regen_fixtures.py
 

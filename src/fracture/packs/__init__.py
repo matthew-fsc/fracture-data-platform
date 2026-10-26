@@ -31,6 +31,34 @@ Assertion = tuple[str, str, str]
 
 
 @dataclass(frozen=True)
+class Entity:
+    """One canonical entity: its natural key, its temporality, its numbers.
+
+    This lives in the pack because it is the domain model. The canonical writer
+    is chassis and must not know what a household or a time entry is; it needs
+    only to be told, for the entity in front of it, which columns make two rows
+    the same fact, whether the fact has business-time validity, and which
+    columns are numeric.
+
+    That last one is load-bearing rather than cosmetic: populating a numeric
+    column from an unconfirmed AI proposal is the forbidden case, and the
+    writer can only refuse it if it knows which columns are numbers.
+    """
+
+    #: Columns that together identify the fact, beside firm_id.
+    key: tuple[str, ...]
+    #: True when the fact has business-time validity. A household's address is
+    #: true for a period; a cash receipt simply happened.
+    business_time: bool = False
+    #: Columns carrying figures with financial consequence.
+    numeric: frozenset[str] = frozenset()
+    #: Source ids in increasing order of authority for this entity. A
+    #: lower-authority source never overwrites a higher one; the disagreement is
+    #: written to recon.source_variance as a finding instead.
+    precedence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class FirmRole:
     """What a firm can be to a tenant, and how many may hold that role."""
 
@@ -68,6 +96,16 @@ class Pack:
     synth_module: str | None = None
     #: Adapter verticals whose sources populate this pack.
     verticals: tuple[str, ...] = ("shared",)
+    #: Entities an engagement must populate for this pack's marts to work.
+    #: Narrower than `entities`, which includes everything the model can hold.
+    #: Used by the assessment: an entity on this list that no adapter covers is
+    #: priced as manual work rather than omitted, and an omitted entity is the
+    #: one that blows the schedule.
+    required_entities: tuple[str, ...] = ()
+    #: The canonical entities this pack defines, keyed by the entity name an
+    #: adapter emits. The canonical writer refuses an entity that is not here,
+    #: which is how a typo in an adapter mapping fails loudly.
+    entities: Mapping[str, Entity] = field(default_factory=dict)
     #: The firm roles this pack recognises, and how many of each a tenant may
     #: hold. `None` is unlimited; `1` is how "exactly one consolidation root"
     #: is stated. Seeded into `control.pack_firm_role` and enforced there by a
@@ -115,7 +153,25 @@ class Pack:
             "firm_roles": {
                 role: spec.max_per_tenant for role, spec in self.firm_roles.items()
             },
+            "entities": sorted(self.entities),
         }
+
+    # -- the canonical model ------------------------------------------------
+
+    def required(self) -> tuple[str, ...]:
+        return self.required_entities or tuple(sorted(self.entities))
+
+    def entity(self, name: str) -> Entity:
+        from fracture.core.errors import FractureError
+
+        try:
+            return self.entities[name]
+        except KeyError:
+            raise FractureError(
+                f"pack {self.name!r} defines no canonical entity {name!r}; "
+                f"add it to the pack manifest or fix the adapter mapping. "
+                f"Known: {', '.join(sorted(self.entities))}"
+            ) from None
 
 
 # -- registry ----------------------------------------------------------------

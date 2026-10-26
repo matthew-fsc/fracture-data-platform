@@ -16,7 +16,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 TEMPLATES = Path(__file__).parent / "templates"
 SERIES = ("--series-1", "--series-2", "--series-3")
@@ -170,13 +170,27 @@ SHORT_STEP = {
 def waterfall(
     steps: Sequence[dict[str, Any]], width: int = 560, height: int = 230,
     short_labels: bool = False,
+    fmt: Callable[[float | None], str] | None = None,
+    delta_fmt: Callable[[float], str] | None = None,
+    short_step: Mapping[str, str] | None = None,
+    aria: str = (
+        "Yield bridge from schedule entitlement to cash collected, in basis points"
+    ),
 ) -> str:
-    """The yield bridge, drawn to one scale.
+    """A bridge, drawn to one scale.
 
     Totals sit on the baseline; losses and gains float between the running
     total before and after. Every bar is labelled with its own value, because a
     waterfall whose steps you have to subtract by eye is a decoration.
+
+    `fmt` and `delta_fmt` are parameters because this is chassis: the wealth
+    pack bridges basis points on AUM and the services pack bridges money, and
+    a copy of this function per unit would be two places to fix the next layout
+    bug in.
     """
+    fmt = fmt or bps
+    delta_fmt = delta_fmt or (lambda v: f"{v:+.2f}")
+    labels = SHORT_STEP if short_step is None else short_step
     if not steps:
         return ""
     pad_l, pad_r, pad_t, pad_b = 46, 12, 16, 44
@@ -188,16 +202,16 @@ def waterfall(
     for step in steps:
         if step["step_kind"] == "total":
             value = float(step["bps"] or 0)
-            label = SHORT_STEP.get(step["label"], step["label"]) if short_labels else step["label"]
+            label = labels.get(step["label"], step["label"]) if short_labels else step["label"]
             bars.append({"lo": 0.0, "hi": value, "kind": "total", "label": label,
-                         "text": bps(value), "delta": None})
+                         "text": fmt(value), "delta": None})
             running = value
         else:
             delta = float(step["delta_bps"] or 0)
             lo, hi = (running + delta, running) if delta < 0 else (running, running + delta)
-            label = SHORT_STEP.get(step["label"], step["label"]) if short_labels else step["label"]
+            label = labels.get(step["label"], step["label"]) if short_labels else step["label"]
             bars.append({"lo": lo, "hi": hi, "kind": step["step_kind"], "label": label,
-                         "text": f"{delta:+.2f}", "delta": delta})
+                         "text": delta_fmt(delta), "delta": delta})
             running += delta
 
     y_max = _nice(max(b["hi"] for b in bars) * 1.12)
@@ -250,7 +264,7 @@ def waterfall(
     )
     return (
         f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Yield bridge from schedule entitlement to cash collected, in basis points">'
+        f'aria-label="{e(aria)}">'
         + "".join(parts) + "</svg>"
     )
 

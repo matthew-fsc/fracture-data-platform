@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fracture.packs import FirmRole, Pack, register
 from fracture.packs.wealth.assertions import ASSERTIONS, NON_EMPTY
+from fracture.packs.wealth.entities import ENTITIES
 
 _HERE = Path(__file__).parent
 
@@ -30,6 +31,17 @@ PACK = register(
         model_dir=_HERE / "marts",
         non_empty=NON_EMPTY,
         assertions=ASSERTIONS,
+        entities=ENTITIES,
+        # The existing wealth fold-in list, unchanged: firm, producer_crosswalk
+        # and policy_term are model capacity rather than engagement
+        # requirements, and pricing them would inflate every quote.
+        required_entities=(
+            "party", "household", "household_member", "producer",
+            "book_assignment", "account", "balance_snapshot", "fee_schedule",
+            "fee_tier", "schedule_assignment", "revenue_event", "invoice",
+            "invoice_line", "cash_receipt", "receipt_application", "cost_line",
+            "fte_allocation", "service_event",
+        ),
         dashboard_module="fracture.packs.wealth.dashboard",
         synth_module="fracture.synth",
         verticals=("wealth", "insurance", "shared"),

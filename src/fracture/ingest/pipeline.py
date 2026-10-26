@@ -56,11 +56,16 @@ class SourceRunner:
         tenant: Tenant,
         store: ArtifactStore,
         system_time: dt.datetime | None = None,
+        pack: str | None = None,
     ) -> None:
         self.control = control
         self.tenant = tenant
         self.store = store
         self.system_time = system_time
+        # Defaults to the tenant's own pack rather than the global default, so
+        # a run against a services tenant cannot be mapped with the wealth
+        # entity registry and quietly fail on a table that does not exist.
+        self.pack = pack or tenant.pack
         self.loader = RawLoader(store, tenant.s3_prefix)
 
     def run(
@@ -168,7 +173,9 @@ class SourceRunner:
         if map_to_canon and batches:
             with self.control.tenant_connection(self.tenant, "transform") as conn:
                 with LineageWriter(conn) as lineage:
-                    writer = CanonWriter(conn, lineage, system_time=self.system_time)
+                    writer = CanonWriter(
+                        conn, lineage, system_time=self.system_time, pack=self.pack
+                    )
                     for batch in batches:
                         records = adapter.map(batch)
                         if not records:

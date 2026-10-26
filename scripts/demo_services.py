@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""The professional services demo, end to end, in one command.
+
+Generates a synthetic practice, loads it through the config-driven CSV adapter
+with no bespoke code, builds the pack's marts with its assertions on, and
+renders the operating console.
+
+Deliberately the same shape as `scripts/demo.py`: if a second vertical needed a
+differently shaped demo, the seam between chassis and pack would be in the
+wrong place.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import sys
+import tempfile
+import uuid
+from dataclasses import replace
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+os.environ.setdefault("FRACTURE_PG_HOST", "127.0.0.1")
+
+from fracture.control.registry import ControlPlane  # noqa: E402
+from fracture.core import db  # noqa: E402
+from fracture.marts.runner import MartRunner  # noqa: E402
+from fracture.pack.shell import write as write_console  # noqa: E402
+from fracture.packs import get_pack  # noqa: E402
+from fracture.packs.services.load import load_practice  # noqa: E402
+from fracture.packs.services.synth import (  # noqa: E402
+    DEMO_PRACTICE,
+    TEST_PRACTICE,
+    generate,
+)
+
+BOLD, RESET = "\033[1m", "\033[0m"
+
+
+def banner(text: str) -> None:
+    print(f"\n{BOLD}{text}{RESET}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scale", choices=("small", "demo"), default="demo")
+    parser.add_argument("--out", default="out/services.html")
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="use a fresh tenant slug rather than reusing the demo one",
+    )
+    args = parser.parse_args()
+
+    started = dt.datetime.now(dt.timezone.utc)
+    control = ControlPlane()
+    control.install_schema()
+
+    base = TEST_PRACTICE if args.scale == "small" else DEMO_PRACTICE
+    slug = base.tenant_slug if not args.reset else f"svc{uuid.uuid4().hex[:9]}"
+    spec = replace(base, tenant_slug=slug)
+
+    banner("1. Generating a synthetic practice")
+    practice = generate(spec, Path(tempfile.mkdtemp(prefix="services-demo-")))
+    print(f"   {practice.summary()}")
+
+    banner("2. Loading it through the config-driven CSV adapter, with no new code")
+    tenant, report = load_practice(practice, control=control)
+    print(f"   {report.summary()}")
+    print(f"   tenant {tenant.slug}  pack={tenant.pack}  "
+          f"engagement={tenant.engagement_code}")
+
+    banner("3. Building the pack's marts with its assertions on")
+    pack = get_pack("services")
+    system_time = dt.datetime.now(dt.timezone.utc)
+    with control.tenant_connection(tenant, "transform") as conn:
+        result = MartRunner(pack=pack).run(conn, system_time)
+        print(f"   {result.summary()}")
+
+        banner("4. The realisation bridge, which has to close")
+        rows = db.query(
+            conn,
+            """
+            select step, direction, amount
+              from mart.realisation_bridge
+             where period_end = (select max(period_end) from mart.realisation_bridge)
+             order by step_order
+            """,
+        )
+        for row in rows:
+            sign = "" if row["direction"] in ("total", "subtotal") else "  "
+            print(f"   {sign}{row['step']:28s} {float(row['amount']):>14,.2f}")
+        opening = float(rows[0]["amount"])
+        movement = sum(
+            float(r["amount"]) for r in rows
+            if r["direction"] in ("loss", "gain")
+        )
+        closing = float(rows[-1]["amount"])
+        print(f"   residual {opening + movement - closing:+.2f}")
+
+        banner("5. The comparability layer")
+        card = db.query_one(
+            conn,
+            "select * from mart.firm_scorecard "
+            "order by period_end desc, firm_id limit 1",
+        )
+        for key in (
+            "card_rate_per_hour", "entitled_per_hour", "billed_per_hour",
+            "collected_per_hour", "writeoff_rate", "pricing_rate",
+            "realisation_rate", "collection_rate", "utilisation",
+            "wip_days", "debtor_days", "lockup_days", "margin_pct",
+            "fee_per_head",
+        ):
+            print(f"   {key:24s} {card[key]}")
+
+        banner("6. Rendering the operating console")
+        board = pack.dashboard()
+        firms = [
+            {"firm_id": f.firm_id, "legal_name": f.legal_name, "role": f.role,
+             "close_date": f.close_date.isoformat() if f.close_date else None}
+            for f in control.list_firms(tenant)
+        ]
+        data = board.collect(conn, tenant, firms)
+
+    out = write_console(
+        board.DEPARTMENTS, board.VIEWS, data, board.chrome(data), args.out
+    )
+    print(f"   {out}  ({out.stat().st_size // 1024} KB)")
+
+    elapsed = (dt.datetime.now(dt.timezone.utc) - started).total_seconds()
+    banner(f"Done in {elapsed:.1f}s")
+    summary = {
+        "tenant": tenant.slug,
+        "pack": tenant.pack,
+        "engagement_code": tenant.engagement_code,
+        "raw_rows": report.raw_rows,
+        "canonical_rows": report.canon_rows,
+        "marts": len(result.models),
+        "mart_rows": result.total_rows,
+        "console": str(out),
+        "elapsed_s": round(elapsed, 1),
+    }
+    for key, value in summary.items():
+        print(f"   {key:20s} {value}")
+    (ROOT / "out").mkdir(exist_ok=True)
+    (ROOT / "out" / "services_demo.json").write_text(json.dumps(summary, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

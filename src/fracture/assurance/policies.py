@@ -189,7 +189,14 @@ def _check_packs_do_not_import_each_other(snap: Snapshot) -> list[Violation]:
 
 # -- P4: mart SQL must bind the pack's system time ---------------------------
 
-_WALL_CLOCK = re.compile(r"(?i)\b(now\(\)|current_timestamp|current_date|localtimestamp)\b")
+#: `now()` needs no trailing \b: a word boundary after ")" sits between two
+#: non-word characters and never matches, which silently disabled the most
+#: important half of this check. Found by a test that planted now() and saw
+#: the policy pass.
+_WALL_CLOCK = re.compile(
+    r"(?i)(\bnow\s*\(\s*\)|\b(?:current_timestamp|current_date|localtimestamp|"
+    r"statement_timestamp|clock_timestamp|transaction_timestamp)\b)"
+)
 _SYSTEM_TIME = re.compile(r"%\(system_time\)s")
 
 

@@ -31,7 +31,7 @@ create table if not exists rate_card (
   effective_from date not null,
   effective_to   date,
   valid_from     date not null default '-infinity',
-  valid_to       date not null default 'infinity',
+  valid_to       date,
   recorded_at    timestamptz not null default now(),
   superseded_at  timestamptz,
   source_id      text not null
@@ -45,7 +45,7 @@ create table if not exists rate_card_line (
   -- Charge-out rate per hour for this grade on this card.
   charge_rate   numeric(12,2) not null,
   valid_from    date not null default '-infinity',
-  valid_to      date not null default 'infinity',
+  valid_to      date,
   recorded_at   timestamptz not null default now(),
   superseded_at timestamptz,
   source_id     text not null,
@@ -67,7 +67,7 @@ create table if not exists rate_card_assignment (
   effective_from date not null,
   effective_to   date,
   valid_from     date not null default '-infinity',
-  valid_to       date not null default 'infinity',
+  valid_to       date,
   recorded_at    timestamptz not null default now(),
   superseded_at  timestamptz,
   source_id      text not null,
@@ -95,7 +95,7 @@ create table if not exists time_entry (
   -- Set when the entry has been picked up by an invoice line.
   billed_on      date,
   valid_from     date not null default '-infinity',
-  valid_to       date not null default 'infinity',
+  valid_to       date,
   recorded_at    timestamptz not null default now(),
   superseded_at  timestamptz,
   source_id      text not null,
@@ -128,7 +128,7 @@ create table if not exists disbursement (
   category        text,
   billed_on       date,
   valid_from      date not null default '-infinity',
-  valid_to        date not null default 'infinity',
+  valid_to        date,
   recorded_at     timestamptz not null default now(),
   superseded_at   timestamptz,
   source_id       text not null
@@ -151,7 +151,7 @@ create table if not exists invoice (
   currency      text not null default 'USD',
   status        text not null default 'issued',  -- issued|paid|part_paid|written_off|void
   valid_from    date not null default '-infinity',
-  valid_to      date not null default 'infinity',
+  valid_to      date,
   recorded_at   timestamptz not null default now(),
   superseded_at timestamptz,
   source_id     text not null,
@@ -175,7 +175,7 @@ create table if not exists invoice_line (
   amount          numeric(18,2) not null,
   narrative       text,
   valid_from      date not null default '-infinity',
-  valid_to        date not null default 'infinity',
+  valid_to        date,
   recorded_at     timestamptz not null default now(),
   superseded_at   timestamptz,
   source_id       text not null,
@@ -194,7 +194,7 @@ create table if not exists cash_receipt (
   method        text,
   currency      text not null default 'USD',
   valid_from    date not null default '-infinity',
-  valid_to      date not null default 'infinity',
+  valid_to      date,
   recorded_at   timestamptz not null default now(),
   superseded_at timestamptz,
   source_id     text not null
@@ -209,7 +209,7 @@ create table if not exists receipt_application (
   amount         numeric(18,2) not null,
   applied_on     date not null,
   valid_from     date not null default '-infinity',
-  valid_to       date not null default 'infinity',
+  valid_to       date,
   recorded_at    timestamptz not null default now(),
   superseded_at  timestamptz,
   source_id      text not null
@@ -231,7 +231,7 @@ create table if not exists cost_line (
   -- allocated across the book.
   engagement_id text,
   valid_from    date not null default '-infinity',
-  valid_to      date not null default 'infinity',
+  valid_to      date,
   recorded_at   timestamptz not null default now(),
   superseded_at timestamptz,
   source_id     text not null

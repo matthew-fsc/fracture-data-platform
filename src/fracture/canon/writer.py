@@ -34,63 +34,12 @@ from fracture.adapters.base import CanonicalRecord
 from fracture.core import db
 from fracture.core.errors import AIBoundaryViolation, FractureError
 from fracture.core.logging import get_logger
+from fracture.packs import Pack, get_pack
 from fracture.core.timeutil import utcnow
 from fracture.canon import precedence
 from fracture.ingest.lineage import LineageWriter
 
 log = get_logger("canon.writer")
-
-#: Canonical entity -> (table, natural-key columns). The natural key is what
-#: makes two rows from two different sources the same fact.
-ENTITY_KEYS: dict[str, tuple[str, ...]] = {
-    "firm": ("firm_id",),
-    "party": ("party_id",),
-    "household": ("household_id",),
-    "household_member": ("household_id", "party_id"),
-    "producer": ("producer_id",),
-    "producer_crosswalk": ("system", "external_key"),
-    "book_assignment": ("producer_id", "household_id", "valid_from"),
-    "account": ("account_id",),
-    "balance_snapshot": ("account_id", "as_of_date"),
-    "policy_term": ("account_id", "term_seq"),
-    "fee_schedule": ("schedule_id",),
-    "fee_tier": ("schedule_id", "tier_seq"),
-    "schedule_assignment": ("scope_type", "scope_id", "schedule_id", "valid_from"),
-    "revenue_event": ("revenue_event_id",),
-    "invoice": ("invoice_id",),
-    "invoice_line": ("invoice_id", "line_no"),
-    "cash_receipt": ("receipt_id",),
-    "receipt_application": ("receipt_id", "invoice_id"),
-    "cost_line": ("cost_id",),
-    "fte_allocation": ("person_id", "period_start", "producer_id", "household_id"),
-    "service_event": ("service_event_id",),
-}
-
-#: Entities that carry business-time validity. The rest are system-time only
-#: (a receipt happened; it does not stop being true).
-BUSINESS_TIME_ENTITIES: frozenset[str] = frozenset(
-    {
-        "firm", "party", "household", "household_member", "producer",
-        "book_assignment", "account", "balance_snapshot", "policy_term",
-        "fee_schedule", "schedule_assignment", "revenue_event", "invoice",
-    }
-)
-
-#: Numeric columns per entity. Populating one of these from an unconfirmed AI
-#: proposal is the forbidden case in spec 8.
-NUMERIC_COLUMNS: dict[str, frozenset[str]] = {
-    "balance_snapshot": frozenset({"market_value", "cash_value", "billable_value"}),
-    "policy_term": frozenset({"premium", "commission_rate"}),
-    "fee_tier": frozenset({"lower_bound", "upper_bound", "annual_rate_bps", "flat_amount"}),
-    "revenue_event": frozenset({"amount", "basis_amount"}),
-    "invoice": frozenset({"total_amount"}),
-    "invoice_line": frozenset({"amount"}),
-    "cash_receipt": frozenset({"amount"}),
-    "receipt_application": frozenset({"amount_applied"}),
-    "cost_line": frozenset({"amount"}),
-    "fte_allocation": frozenset({"hours", "hourly_cost"}),
-    "book_assignment": frozenset({"split_pct"}),
-}
 
 DEFAULT_VALID_FROM = dt.date(1900, 1, 1)
 
@@ -135,10 +84,17 @@ class CanonWriter:
         conn: PGConnection,
         lineage: LineageWriter | None = None,
         system_time: dt.datetime | None = None,
+        pack: Pack | str | None = None,
     ) -> None:
         self.conn = conn
         self.lineage = lineage or LineageWriter(conn)
         self.system_time = system_time or utcnow()
+        # The entity registry is the pack's, not the writer's. This class knows
+        # how to supersede a fact bitemporally and how to refuse an unconfirmed
+        # AI proposal in a numeric column; it does not know what a household or
+        # a time entry is, and the moment it does the chassis stops being
+        # reusable.
+        self.pack = pack if isinstance(pack, Pack) else get_pack(pack)
 
     # -- public ------------------------------------------------------------
 
@@ -155,13 +111,15 @@ class CanonWriter:
     def _write_entity(
         self, entity: str, records: Sequence[CanonicalRecord], stats: WriteStats
     ) -> None:
-        if entity not in ENTITY_KEYS:
+        if entity not in self.pack.entities:
             raise FractureError(
                 f"no canonical table registered for entity {entity!r}; "
-                "add it to ENTITY_KEYS or fix the adapter mapping"
+                f"pack {self.pack.name!r} defines no such entity; add it to the pack "
+                "manifest or fix the adapter mapping"
             )
-        key_cols = ENTITY_KEYS[entity]
-        has_business_time = entity in BUSINESS_TIME_ENTITIES
+        spec = self.pack.entity(entity)
+        key_cols = spec.key
+        has_business_time = spec.business_time
         firm_ids = {r.firm_id for r in records}
         current = self._load_current(entity, key_cols, firm_ids)
 
@@ -362,7 +320,7 @@ class CanonWriter:
         """
         if record.ai_proposal_id is None:
             return
-        numeric = NUMERIC_COLUMNS.get(entity, frozenset())
+        numeric = self.pack.entity(entity).numeric
         touched = sorted(c for c in numeric if values.get(c) is not None)
         if not touched:
             return
@@ -403,7 +361,7 @@ class CanonWriter:
     def _record_ai_edges(
         self, entity: str, canon_id: int, values: dict[str, Any], proposal_id: Any
     ) -> None:
-        numeric = NUMERIC_COLUMNS.get(entity, frozenset())
+        numeric = self.pack.entity(entity).numeric
         rows = [
             (f"canon.{entity}", str(canon_id), column, proposal_id, column in numeric)
             for column, value in values.items()

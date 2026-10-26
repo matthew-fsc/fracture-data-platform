@@ -239,6 +239,79 @@ def cmd_estimate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_packs(args: argparse.Namespace) -> int:
+    """What domains this build can deliver, and what each measures."""
+    from fracture.packs import all_packs
+
+    for pack in all_packs():
+        d = pack.as_dict()
+        print(f"{pack.name:10s} {pack.title}")
+        print(f"           {pack.thesis}")
+        print(
+            f"           {len(d['models'])} marts, {len(d['entities'])} entities, "
+            f"{d['assertions']} assertions, {len(d['departments'])} views"
+        )
+        print(f"           roles: {d['firm_roles']}")
+        print(f"           verticals: {', '.join(d['verticals'])}")
+    return 0
+
+
+def cmd_assure(args: argparse.Namespace) -> int:
+    """Run the code-side gate, and optionally record it against the control plane."""
+    from fracture.assurance import run_policies
+
+    report = run_policies(args.root)
+    if args.json:
+        print(report.to_json())
+    else:
+        print(report.summary())
+        for result in report.results:
+            mark = "ok  " if result.passed else "FAIL"
+            print(f"  {mark} {result.policy.policy_id}  {result.policy.title}")
+            for violation in result.violations:
+                print(f"         {violation}")
+            if not result.passed:
+                print(f"         why: {result.policy.rationale}")
+
+    if args.record:
+        from fracture.assurance.gate import record_gate
+
+        record = record_gate(
+            _control(), report,
+            authored_by=args.authored_by,
+            author_kind=args.author_kind,
+            approved_by=args.approved_by,
+            summary=args.summary or "",
+        )
+        print(f"\nrecorded: {record}")
+    return 0 if report.passed else 1
+
+
+def cmd_gates(args: argparse.Namespace) -> int:
+    from fracture.assurance.gate import list_gates
+
+    for record in list_gates(_control(), limit=args.limit):
+        print(record)
+    return 0
+
+
+def cmd_approve(args: argparse.Namespace) -> int:
+    from fracture.assurance.gate import approve_gate
+
+    record = approve_gate(_control(), args.gate_id, approved_by=args.approved_by)
+    print(record)
+    return 0
+
+
+def cmd_assess(args: argparse.Namespace) -> int:
+    """Offering one, computed: the fixed-fee assessment from a coverage manifest."""
+    from fracture.assurance.assess import assess
+
+    result = assess(args.systems, pack=args.pack, rate=args.rate)
+    print(result.to_json() if args.json else result.to_text())
+    return 0
+
+
 def cmd_demo(args: argparse.Namespace) -> int:
     import subprocess
 
@@ -337,6 +410,43 @@ def build_parser() -> argparse.ArgumentParser:
     estimate.add_argument("systems", nargs="+")
     estimate.add_argument("--vertical", choices=("wealth", "insurance"), default="wealth")
     estimate.set_defaults(func=cmd_estimate)
+
+    sub.add_parser("packs", help="list the domain packs this build can deliver") \
+        .set_defaults(func=cmd_packs)
+
+    assure = sub.add_parser("assure", help="run the code-side assurance gate")
+    assure.add_argument("--root", help="repository root (defaults to this install)")
+    assure.add_argument("--json", action="store_true")
+    assure.add_argument(
+        "--record", action="store_true",
+        help="write the run to control.change_gate",
+    )
+    assure.add_argument("--authored-by", default="unknown")
+    assure.add_argument(
+        "--author-kind", choices=("human", "agent"), default="agent",
+        help="an agent-authored change needs a named human approver",
+    )
+    assure.add_argument("--approved-by")
+    assure.add_argument("--summary")
+    assure.set_defaults(func=cmd_assure)
+
+    gates = sub.add_parser("gates", help="recent gate runs and their approvals")
+    gates.add_argument("--limit", type=int, default=20)
+    gates.set_defaults(func=cmd_gates)
+
+    approve = sub.add_parser("approve", help="sign off a recorded gate run")
+    approve.add_argument("gate_id")
+    approve.add_argument("--approved-by", required=True)
+    approve.set_defaults(func=cmd_approve)
+
+    assess = sub.add_parser(
+        "assess", help="the fixed-fee architecture assessment, computed"
+    )
+    assess.add_argument("systems", nargs="+")
+    assess.add_argument("--pack", help="domain pack (default: wealth)")
+    assess.add_argument("--rate", type=float, default=225.0)
+    assess.add_argument("--json", action="store_true")
+    assess.set_defaults(func=cmd_assess)
 
     demo = sub.add_parser("demo", help="run the synthetic demo end to end")
     demo.add_argument("rest", nargs=argparse.REMAINDER)

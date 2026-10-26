@@ -27,10 +27,29 @@ PERIOD_END = dt.date(2026, 3, 31)
 
 @pytest.fixture(scope="module")
 def pack(control, built_marts):
+    """A pack issued at one pinned system time.
+
+    `**built_marts` is spread FIRST and the explicit keys last. It used to be
+    the other way round, which silently shadowed `system_time` with the mart
+    build's earlier timestamp: every reissue test then rebuilt at a different
+    instant than the original, still-open service events aged by a second or
+    two, and the p90 elapsed figure flipped whenever it landed on a rounding
+    boundary. The test that guards the platform's headline guarantee was
+    passing by luck roughly three runs in four.
+    """
     system_time = dt.datetime.now(dt.timezone.utc)
     builder = PackBuilder(control, built_marts["tenant"])
     result = builder.build(PERIOD_START, PERIOD_END, system_time=system_time)
-    return {"builder": builder, "result": result, "system_time": system_time, **built_marts}
+    merged = {**built_marts, "builder": builder, "result": result,
+              "system_time": system_time}
+    assert merged["system_time"] == system_time, (
+        "the pack fixture's system_time was shadowed by a spread dict; every "
+        "reissue assertion below would compare two different instants"
+    )
+    assert merged["system_time"] == result.pack_run.system_time, (
+        "the fixture's system_time does not match the issued pack run's"
+    )
+    return merged
 
 
 def test_pack_issues_with_figures_in_every_section(control, pack):
@@ -91,13 +110,43 @@ def test_every_section_publishes_the_metrics_it_defines(control, pack):
 
 
 def test_reissue_at_the_same_system_time_is_byte_identical(control, pack):
-    """The guarantee, executed."""
+    """The guarantee, executed.
+
+    On failure this names the figures that moved. A bare hash comparison tells
+    you the pack is not reproducible and nothing about why, and the cause is
+    usually one non-total ordering in one section.
+    """
+    from fracture.pack.build import _describe_moved, restatement_delta
+
     again = pack["builder"].build(
         PERIOD_START, PERIOD_END, system_time=pack["system_time"]
     )
-    assert again.content_hash == pack["result"].content_hash, (
-        "a pack reissued at its pinned system time produced different numbers"
-    )
+    if again.content_hash != pack["result"].content_hash:
+        with control.tenant_connection(pack["tenant"], "transform") as conn:
+            moved = restatement_delta(
+                conn,
+                pack["result"].pack_run.pack_run_id,
+                again.pack_run.pack_run_id,
+            )
+            counts = db.query(
+                conn,
+                """
+                select pack_run_id, section, count(*) as n
+                  from pack.figure
+                 where pack_run_id = any(%s)
+                 group by 1, 2 order by section, pack_run_id
+                """,
+                ([pack["result"].pack_run.pack_run_id, again.pack_run.pack_run_id],),
+            )
+        by_section: dict[str, set[int]] = {}
+        for row in counts:
+            by_section.setdefault(row["section"], set()).add(row["n"])
+        differing = {s: v for s, v in by_section.items() if len(v) > 1}
+        raise AssertionError(
+            "a pack reissued at its pinned system time produced different "
+            f"numbers.\n  {len(moved)} figure(s) moved: {_describe_moved(moved)}"
+            f"\n  sections whose figure count differs: {differing or 'none'}"
+        )
 
 
 def test_verify_reproducible_passes_for_an_issued_pack(control, pack):

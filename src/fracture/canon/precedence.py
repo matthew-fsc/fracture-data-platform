@@ -20,32 +20,26 @@ from typing import Any, Mapping, Sequence
 
 #: Per entity, sources in ascending authority. A source not listed sits below
 #: every listed one; ties fall back to "do not overwrite an existing row".
-SOURCE_PRECEDENCE: dict[str, tuple[str, ...]] = {
-    "account": ("generic_csv", "qbo", "redtail", "orion", "schwab_custodian"),
-    # The custodian is the record of AUM. This is the whole reason the
-    # reconciliation finding has commercial weight.
-    "balance_snapshot": ("generic_csv", "orion", "schwab_custodian"),
-    "party": ("generic_csv", "orion", "schwab_custodian", "redtail"),
-    "household": ("generic_csv", "orion", "redtail"),
-    "household_member": ("generic_csv", "orion", "redtail"),
-    "producer": ("generic_csv", "orion", "redtail"),
-    "book_assignment": ("generic_csv", "redtail", "orion"),
-    "fee_schedule": ("generic_csv", "qbo", "manual_fee_schedule"),
-    "fee_tier": ("generic_csv", "qbo", "manual_fee_schedule"),
-    "schedule_assignment": ("generic_csv", "qbo", "manual_fee_schedule"),
-    "invoice": ("generic_csv", "orion", "qbo"),
-    "invoice_line": ("generic_csv", "orion", "qbo"),
-    "cash_receipt": ("generic_csv", "orion", "qbo"),
-    "receipt_application": ("generic_csv", "orion", "qbo"),
-    "revenue_event": ("generic_csv", "orion", "qbo"),
-    "cost_line": ("generic_csv", "qbo"),
-    "fte_allocation": ("generic_csv", "qbo"),
-    "service_event": ("generic_csv", "redtail", "orion"),
-}
+#: Precedence now lives on each pack's entity registry, because who outranks
+#: whom is a statement about one domain's source systems. Kept as a function
+#: so callers read the same way they did.
+def precedence_for(entity: str, pack: Any | None = None) -> tuple[str, ...]:
+    from fracture.packs import Pack, get_pack
+
+    resolved = pack if isinstance(pack, Pack) else get_pack(pack)
+    spec = resolved.entities.get(entity)
+    return spec.precedence if spec else ()
+
 
 #: Columns compared when deciding whether two sources materially disagree.
 #: Comparing every column would flag a null vs a value, which is coverage, not
 #: disagreement.
+#:
+#: Still keyed by entity name in the chassis rather than moved onto the pack.
+#: An entity with no entry here is simply never flagged for variance, which is
+#: the right default for a pack whose sources do not yet overlap; it becomes
+#: wrong the moment two services sources both write invoices. Recorded in
+#: OPEN_DECISIONS rather than left for someone to discover.
 VARIANCE_COLUMNS: dict[str, tuple[str, ...]] = {
     "balance_snapshot": ("market_value",),
     "account": ("status", "closed_on"),
@@ -59,8 +53,8 @@ VARIANCE_COLUMNS: dict[str, tuple[str, ...]] = {
 DEFAULT_VARIANCE_TOLERANCE = Decimal("0.0001")
 
 
-def authority(entity: str, source_id: str) -> int:
-    order = SOURCE_PRECEDENCE.get(entity)
+def authority(entity: str, source_id: str, pack: Any | None = None) -> int:
+    order = precedence_for(entity, pack)
     if not order:
         return 0
     return order.index(source_id) + 1 if source_id in order else 0
@@ -141,5 +135,5 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
-def ordered_sources(entity: str) -> Sequence[str]:
-    return SOURCE_PRECEDENCE.get(entity, ())
+def ordered_sources(entity: str, pack: Any | None = None) -> Sequence[str]:
+    return precedence_for(entity, pack)

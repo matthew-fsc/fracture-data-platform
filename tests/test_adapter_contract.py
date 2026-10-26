@@ -60,12 +60,70 @@ def test_capability_manifest_is_machine_readable(source_id, cls):
 
 @pytest.mark.parametrize("source_id,cls", ADAPTERS, ids=ADAPTER_IDS)
 def test_declared_entities_are_writable(source_id, cls):
-    """A manifest promising an entity the canonical writer cannot write is a
-    quote for work that will not land."""
-    from fracture.canon.writer import ENTITY_KEYS
+    """A manifest promising an entity no pack can write is a quote for work
+    that will not land.
 
-    unknown = cls.capabilities.entity_names() - set(ENTITY_KEYS)
-    assert not unknown, f"{source_id} claims entities with no canonical table: {sorted(unknown)}"
+    Checked against every registered pack rather than one, because an adapter
+    declares a vertical and a shared adapter must be writable in each pack it
+    claims to serve.
+    """
+    from fracture.packs import all_packs
+
+    known: set[str] = set()
+    for pack in all_packs():
+        known |= set(pack.entities)
+    unknown = cls.capabilities.entity_names() - known
+    assert not unknown, (
+        f"{source_id} claims entities no pack defines: {sorted(unknown)}"
+    )
+
+
+def test_every_pack_entity_has_a_canonical_table():
+    """An entity in a manifest with no table behind it fails at the first load
+    of a source that emits it, which is the worst possible time to find out."""
+    import re
+
+    from fracture.packs import all_packs
+
+    for pack in all_packs():
+        ddl = "\n".join(sql for _, sql in pack.ddl_scripts()).lower()
+        tables = {
+            name.split(".")[-1]
+            for name in re.findall(
+                r"create table if not exists ([\w.]+)", ddl
+            )
+        }
+        missing = sorted(name for name in pack.entities if name not in tables)
+        assert not missing, (
+            f"pack {pack.name!r} declares entities with no canon table: {missing}"
+        )
+
+
+def test_every_pack_entity_declares_its_numeric_columns_against_real_columns():
+    """The AI boundary refuses an unconfirmed proposal in a numeric column. A
+    numeric column named in the manifest but absent from the table means the
+    boundary is guarding a column that does not exist, and the one that does
+    exist is unguarded."""
+    import re
+
+    from fracture.packs import all_packs
+
+    for pack in all_packs():
+        ddl = "\n".join(sql for _, sql in pack.ddl_scripts())
+        for name, spec in sorted(pack.entities.items()):
+            if not spec.numeric:
+                continue
+            block = re.search(
+                rf"create table if not exists (?:canon\.)?{name}\s*\((.*?)\n\);",
+                ddl, re.IGNORECASE | re.DOTALL,
+            )
+            assert block, f"{pack.name}/{name}: no table block found"
+            columns = set(re.findall(r"^\s{2}(\w+)\s", block.group(1), re.MULTILINE))
+            missing = sorted(c for c in spec.numeric if c not in columns)
+            assert not missing, (
+                f"{pack.name}/{name} declares numeric columns not on the table: "
+                f"{missing}"
+            )
 
 
 # -- 2. discovery snapshot fixture, checked in -------------------------------
