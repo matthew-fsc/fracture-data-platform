@@ -319,6 +319,41 @@ def test_the_console_renders_for_the_services_pack(control, practice):
     # The shell is chassis and must not have leaked a wealth word into it.
     for word in ("household", "AUM", "custodian"):
         assert word not in html, f"the services console mentions {word!r}"
+    # A real engagement's console carries no notice, so an unset one must not
+    # render an empty banner the reader would have to interpret.
+    assert 'class="notice"' not in html
+
+
+def test_a_demonstration_console_says_so_where_a_reader_cannot_miss_it(
+    control, practice
+):
+    """A console that looks like a client's book and is not is the one artefact
+    here that could mislead someone outside the engagement."""
+    from dataclasses import replace
+
+    from fracture.pack.shell import render
+
+    pack = practice["pack"]
+    board = pack.dashboard()
+    firms = [{
+        "firm_id": practice["spec"].firm_id,
+        "legal_name": practice["spec"].tenant_name,
+        "role": "practice", "close_date": None,
+    }]
+    with control.tenant_connection(practice["tenant"], "transform") as conn:
+        data = board.collect(conn, practice["tenant"], firms)
+    notice = "Demonstration estate. Synthetic practice; no client data was read."
+    html = render(
+        board.DEPARTMENTS,
+        board.VIEWS,
+        data,
+        replace(board.chrome(data), notice=notice),
+    )
+    assert 'class="notice"' in html
+    assert notice in html
+    # Above the views, not in the footer: a reader who stops at the first
+    # screen has still been told.
+    assert html.index(notice) < html.index('id="view-executive"')
 
 
 # -- the assessment ----------------------------------------------------------

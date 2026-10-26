@@ -36,6 +36,11 @@ class Chrome:
     subjects: tuple[str, ...]
     rail_note: str
     footer: str
+    # Set when the figures are not a client's real book: a demonstration estate,
+    # a draft load, a dry run. Rendered where a reader cannot miss it, because a
+    # console that looks like the real thing and is not is the one artefact on
+    # this platform that could mislead someone outside the engagement.
+    notice: str = ""
 
 
 def render(
@@ -76,6 +81,10 @@ def render(
 
     subject_lines = "".join(f"<div>{line}</div>" for line in chrome.subjects)
 
+    banner = (
+        f'<p class="notice" role="note">{e(chrome.notice)}</p>' if chrome.notice else ""
+    )
+
     return f"""<title>{e(chrome.title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,6 +105,7 @@ def render(
     </div>
   </aside>
   <main class="main">
+    {banner}
     {"".join(sections)}
     <p class="foot">Figures are current as at {e(chrome.generated_at)}Z, drawn from the same
     canonical model as the issued board pack and reconciled against each source system's own
