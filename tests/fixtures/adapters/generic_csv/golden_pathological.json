@@ -1,0 +1,60 @@
+[
+ {
+  "entity": "account",
+  "natural_key": "A-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "account_type": "custodial",
+   "household_id": null,
+   "status": "open"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "balance_snapshot",
+  "natural_key": "A-\u00dc01|2026-03-31",
+  "firm_id": "FIX",
+  "values": {
+   "account_id": "A-\u00dc01",
+   "as_of_date": "2026-03-31",
+   "cash_value": null,
+   "currency": null,
+   "market_value": "-18500.25"
+  },
+  "valid_from": "2026-03-31",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ },
+ {
+  "entity": "household",
+  "natural_key": "H-\u00dc01",
+  "firm_id": "FIX",
+  "values": {
+   "household_id": "H-\u00dc01",
+   "name": "M\u00e9nage Dubois-O'Brien",
+   "onboarded_on": "1994-01-03",
+   "segment": null
+  },
+  "valid_from": "1994-01-03",
+  "valid_to": null,
+  "refs": [
+   [
+    "00000000-0000-4000-8000-000000000001",
+    1
+   ]
+  ]
+ }
+]

@@ -1,0 +1,26 @@
+[
+ {
+  "name": "assignments",
+  "primary_key": [
+   "scheduleId",
+   "scopeType",
+   "scopeId"
+  ],
+  "incremental_on": null
+ },
+ {
+  "name": "schedules",
+  "primary_key": [
+   "scheduleId"
+  ],
+  "incremental_on": null
+ },
+ {
+  "name": "tiers",
+  "primary_key": [
+   "scheduleId",
+   "tierSeq"
+  ],
+  "incremental_on": null
+ }
+]

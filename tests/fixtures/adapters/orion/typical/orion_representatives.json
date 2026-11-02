@@ -1,0 +1,25 @@
+{
+ "representatives": [
+  {
+   "assignments": [
+    {
+     "effectiveFrom": "2019-04-02",
+     "effectiveTo": null,
+     "householdId": "H-001",
+     "splitPct": 100
+    },
+    {
+     "effectiveFrom": "2016-11-20",
+     "effectiveTo": null,
+     "householdId": "H-002",
+     "splitPct": 60
+    }
+   ],
+   "hireDate": "2014-06-01",
+   "name": "Priya Marchetti",
+   "repCode": "PM001",
+   "repId": "ADV-001",
+   "termDate": null
+  }
+ ]
+}

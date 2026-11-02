@@ -1,0 +1,44 @@
+source_id: acme_ledger
+label: Acme Ledger nightly extract
+vertical: shared
+fold_in_hours: 4
+streams:
+  - name: households
+    file: households.csv
+    primary_key: [household_id]
+    incremental_on: updated_at
+    entities:
+      - entity: household
+        natural_key: "{household_id}"
+        valid_from: opened_on
+        columns:
+          household_id: {from: household_id, type: text}
+          name: {from: household_name, type: text}
+          segment: {from: segment, type: optional_text, required: false}
+          onboarded_on: {from: opened_on, type: date}
+  - name: balances
+    file: balances.csv
+    primary_key: [account_id, as_of_date]
+    incremental_on: as_of_date
+    entities:
+      - entity: account
+        natural_key: "{account_id}"
+        valid_from: as_of_date
+        columns:
+          account_id: {from: account_id, type: text}
+          account_type: {constant: custodial}
+          household_id: {from: household_id, type: optional_text, required: false}
+          status: {constant: open}
+      - entity: balance_snapshot
+        natural_key: "{account_id}|{as_of_date}"
+        valid_from: as_of_date
+        columns:
+          account_id: {from: account_id, type: text}
+          as_of_date: {from: as_of_date, type: date}
+          market_value: {from: market_value, type: decimal}
+          cash_value: {from: cash_value, type: optional_decimal, required: false}
+          currency: {from: currency, type: optional_text, required: false}
+coverage:
+  - {entity: household, grain: household, completeness: 0.8, manual_hours: 1}
+  - {entity: account, grain: account, completeness: 0.6, manual_hours: 3}
+  - {entity: balance_snapshot, grain: account/day, completeness: 0.95, manual_hours: 0}

@@ -1,0 +1,17 @@
+{
+ "payments": [
+  {
+   "applications": [
+    {
+     "amount": "3625.00",
+     "invoiceId": "INV-001"
+    }
+   ],
+   "customerRef": "H-001",
+   "paymentId": "PMT-001",
+   "paymentMethod": "ach",
+   "totalAmount": "3625.00",
+   "txnDate": "2026-04-28"
+  }
+ ]
+}

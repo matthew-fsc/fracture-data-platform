@@ -1,0 +1,20 @@
+{
+ "tiers": [
+  {
+   "annualRateBps": "100.000000",
+   "flatAmount": null,
+   "lowerBound": "0",
+   "scheduleId": "SCHED-LEGACY",
+   "tierSeq": 1,
+   "upperBound": null
+  },
+  {
+   "annualRateBps": null,
+   "flatAmount": "12500",
+   "lowerBound": "25000000",
+   "scheduleId": "SCHED-LEGACY",
+   "tierSeq": 2,
+   "upperBound": null
+  }
+ ]
+}

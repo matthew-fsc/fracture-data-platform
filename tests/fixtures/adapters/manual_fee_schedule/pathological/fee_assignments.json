@@ -1,0 +1,11 @@
+{
+ "assignments": [
+  {
+   "effectiveFrom": "1994-01-10",
+   "effectiveTo": "2024-12-31",
+   "scheduleId": "SCHED-LEGACY",
+   "scopeId": "A-\u00dc01",
+   "scopeType": "ACCOUNT"
+  }
+ ]
+}

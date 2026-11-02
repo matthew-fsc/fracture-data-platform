@@ -1,0 +1,14 @@
+{
+ "service_requests": [
+  {
+   "accountId": "A-001",
+   "assignedRepId": "ADV-001",
+   "closedAt": "2026-02-12T09:30:00+00:00",
+   "householdId": "H-001",
+   "openedAt": "2026-02-10T14:05:00+00:00",
+   "requestId": "SVC-001",
+   "requestType": "transfer",
+   "slaHours": 120
+  }
+ ]
+}

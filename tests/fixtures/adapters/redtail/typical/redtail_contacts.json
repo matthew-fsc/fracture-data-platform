@@ -1,0 +1,28 @@
+{
+ "contacts": [
+  {
+   "clientSince": "2019-04-02",
+   "contactId": "P-001",
+   "contactType": "individual",
+   "country": "US",
+   "displayName": "Amara Okafor",
+   "familyId": "H-001",
+   "familyRole": "head of household",
+   "firstName": "Amara",
+   "lastName": "Okafor",
+   "updatedAt": "2026-01-05"
+  },
+  {
+   "clientSince": "2019-04-02",
+   "contactId": "P-001S",
+   "contactType": "individual",
+   "country": "US",
+   "displayName": "Noel Okafor",
+   "familyId": "H-001",
+   "familyRole": "spouse",
+   "firstName": "Noel",
+   "lastName": "Okafor",
+   "updatedAt": "2026-01-05"
+  }
+ ]
+}

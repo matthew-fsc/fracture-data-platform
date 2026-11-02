@@ -1,0 +1,295 @@
+-- Control plane: fracture_control
+--
+-- This database is never joined to tenant data. postgres_fdw and dblink are
+-- deliberately not installed; `control_plane_isolation` in the test suite
+-- asserts that.
+
+create schema if not exists control;
+set search_path = control, public;
+
+-- --------------------------------------------------------------------------
+-- Registry (spec section 3.2)
+-- --------------------------------------------------------------------------
+
+create table if not exists tenant (
+  tenant_id        uuid primary key default gen_random_uuid(),
+  slug             text unique not null,      -- dns-safe, used in db name and s3 prefix
+  legal_name       text not null,
+  status           text not null,             -- provisioning|active|suspended|archived
+  motion           text not null,             -- diligence|operating
+  kms_key_arn      text not null,
+  db_host          text not null,
+  db_name          text not null,
+  s3_prefix        text not null,
+  created_at       timestamptz not null default now(),
+  archive_after    date,                      -- diligence tenants: close + 30d
+  promoted_from    uuid references tenant(tenant_id),
+  constraint tenant_slug_dns_safe check (slug ~ '^[a-z][a-z0-9-]{1,38}[a-z0-9]$'),
+  constraint tenant_status_valid check (status in ('provisioning','active','suspended','archived')),
+  constraint tenant_motion_valid check (motion in ('diligence','operating')),
+  -- A diligence tenant without a destruction date is how an ephemeral tenant
+  -- quietly becomes permanent and un-budgeted.
+  constraint diligence_has_archive_date check (motion <> 'diligence' or archive_after is not null)
+);
+
+create table if not exists tenant_firm (
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  firm_id          text not null,
+  legal_name       text not null,
+  role             text not null,             -- platform|addon
+  close_date       date,
+  folded_in_at     timestamptz,
+  primary key (tenant_id, firm_id)
+);
+
+-- The firm-role vocabulary used to be a check constraint listing
+-- platform|addon, and "exactly one platform firm" a partial unique index. Both
+-- are wealth-pack rules: a consolidator tenant has one platform firm and N
+-- add-ons, while a professional-services engagement has one client and
+-- possibly several counterparties, and neither vocabulary is wrong.
+--
+-- They are not simply dropped. A rule enforced in application code is a rule
+-- that holds until someone writes a second code path, and this platform's whole
+-- claim is that isolation and integrity sit in the database. So the vocabulary
+-- and its cardinality become *data*, seeded from the pack registry, and a
+-- trigger enforces them per tenant according to that tenant's pack.
+alter table tenant_firm drop constraint if exists firm_role_valid;
+drop index if exists tenant_one_platform_firm;
+
+create table if not exists pack_firm_role (
+  pack             text not null,
+  role             text not null,
+  -- null means unlimited. 1 is how "exactly one consolidation root" is said.
+  max_per_tenant   int,
+  description      text not null default '',
+  primary key (pack, role),
+  constraint max_per_tenant_positive check (max_per_tenant is null or max_per_tenant > 0)
+);
+
+create or replace function tenant_firm_role_valid() returns trigger as $$
+declare
+  tenant_pack text;
+  allowed     int;
+  existing    int;
+begin
+  select pack into tenant_pack from control.tenant where tenant_id = new.tenant_id;
+  if tenant_pack is null then
+    raise exception 'tenant % is not registered', new.tenant_id;
+  end if;
+
+  select max_per_tenant into strict allowed
+    from control.pack_firm_role
+   where pack = tenant_pack and role = new.role;
+
+  if allowed is not null then
+    select count(*) into existing
+      from control.tenant_firm
+     where tenant_id = new.tenant_id
+       and role = new.role
+       and firm_id <> new.firm_id;
+    if existing >= allowed then
+      raise exception
+        'pack % allows at most % firm(s) with role % per tenant; % already has %',
+        tenant_pack, allowed, new.role, new.tenant_id, existing;
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists tenant_firm_role_check on tenant_firm;
+create trigger tenant_firm_role_check
+  before insert or update on tenant_firm
+  for each row execute function tenant_firm_role_valid();
+
+-- Forward-only column adds. Applied here rather than in a numbered migration
+-- because the control schema is installed idempotently on every boot, and a
+-- control plane that cannot be brought forward in place is a control plane
+-- nobody upgrades.
+alter table tenant add column if not exists pack text not null default 'wealth';
+alter table tenant add column if not exists engagement_code text;
+
+create index if not exists tenant_by_pack on tenant (pack) where status = 'active';
+create index if not exists tenant_by_engagement on tenant (engagement_code)
+  where engagement_code is not null;
+
+create table if not exists tenant_source (
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  firm_id          text not null,
+  source_id        text not null,             -- adapter id, e.g. 'orion', 'ams360'
+  secret_path      text not null,
+  status           text not null,             -- pending|verified|live|failed
+  verified_read_only_at timestamptz,
+  verified_by      text,
+  last_error       text,
+  primary key (tenant_id, firm_id, source_id),
+  foreign key (tenant_id, firm_id) references tenant_firm(tenant_id, firm_id) on delete cascade,
+  constraint source_status_valid check (status in ('pending','verified','live','failed')),
+  -- The record you produce when a client asks how you know you could not have
+  -- modified their systems. A live source without it is not defensible.
+  constraint live_requires_read_only_proof check (
+    status <> 'live' or (verified_read_only_at is not null and verified_by is not null)
+  )
+);
+
+create table if not exists pack_run (
+  pack_run_id      uuid primary key default gen_random_uuid(),
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  period           daterange not null,
+  system_time      timestamptz not null,      -- freezes bitemporal reads, spec 6.3
+  status           text not null,             -- building|issued|superseded|failed
+  content_hash     bytea,                     -- sha256 of the rendered pack
+  issued_at        timestamptz,
+  supersedes       uuid references pack_run(pack_run_id),
+  constraint pack_status_valid check (status in ('building','issued','superseded','failed')),
+  constraint issued_pack_has_hash check (status <> 'issued' or content_hash is not null)
+);
+
+create index if not exists pack_run_tenant_period on pack_run (tenant_id, lower(period));
+
+-- --------------------------------------------------------------------------
+-- Operational tables (beyond spec 3.2; noted in docs/DEVIATIONS.md)
+-- --------------------------------------------------------------------------
+
+-- Schema migrations fan out over the tenant registry (spec 3.1). Recording the
+-- outcome per tenant is what makes the success threshold enforceable.
+create table if not exists tenant_migration (
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  version          text not null,
+  applied_at       timestamptz not null default now(),
+  checksum         bytea not null,
+  succeeded        boolean not null,
+  error            text,
+  primary key (tenant_id, version)
+);
+
+-- fingerprint() output per run. Drift detection (spec 16) compares the newest
+-- two rows for a source and refuses to map when the schema hash moved.
+create table if not exists source_fingerprint (
+  fingerprint_id   uuid primary key default gen_random_uuid(),
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  firm_id          text not null,
+  source_id        text not null,
+  observed_at      timestamptz not null default now(),
+  source_version   text,
+  schema_hash      bytea not null,
+  row_counts       jsonb not null default '{}'::jsonb,
+  streams          jsonb not null default '[]'::jsonb,
+  -- Stream -> field names. Without this the drift diff degrades to "something
+  -- changed", which is not actionable and not what spec 16 asks for.
+  field_names      jsonb not null default '{}'::jsonb,
+  read_only_verified boolean not null default false
+);
+
+create index if not exists source_fingerprint_lookup
+  on source_fingerprint (tenant_id, firm_id, source_id, observed_at desc);
+
+-- Every human query against tenant data (spec section 9), disclosable on request.
+-- --------------------------------------------------------------------------
+-- The code-side gate
+-- --------------------------------------------------------------------------
+--
+-- The data-side AI boundary says no model computes a figure with financial
+-- consequence. This table is the other half: when an agent writes code, what
+-- did the gate say about it, and which human let it through.
+--
+-- It exists because "agent-assisted engineering with human decision gates" is
+-- a claim a client's security review will test, and the only answer that
+-- survives that conversation is a queryable record. A passing CI run is not
+-- one: it proves the tree was clean, not that a person decided to ship it.
+create table if not exists change_gate (
+  change_gate_id   uuid primary key default gen_random_uuid(),
+  -- The revision the gate ran against. Nullable only because a gate run on a
+  -- dirty working tree has no revision, and hiding that is worse than storing
+  -- it.
+  revision         text,
+  branch           text,
+  -- sha256 over the inspected source, and over the findings. Both, because an
+  -- unchanged tree with a changed report means the policy set moved.
+  tree_hash        bytea not null,
+  report_hash      bytea not null,
+  policy_count     int not null,
+  violation_count  int not null,
+  verdict          text not null,              -- pass|fail
+  -- Who wrote the change and who approved it. An agent cannot be the approver;
+  -- the constraint below is the whole point of the table.
+  authored_by      text not null,
+  author_kind      text not null,              -- human|agent
+  approved_by      text,
+  approved_at      timestamptz,
+  summary          text not null default '',
+  report           jsonb not null,
+  created_at       timestamptz not null default now(),
+  constraint gate_verdict_valid check (verdict in ('pass','fail')),
+  constraint gate_author_kind_valid check (author_kind in ('human','agent')),
+  -- An agent-authored change needs a named human approver. Enforced here
+  -- rather than in the tool that writes the row, because a rule that lives in
+  -- one code path lasts until the second code path.
+  constraint agent_change_needs_human_approval check (
+    author_kind <> 'agent'
+    or (approved_by is not null and approved_at is not null)
+  ),
+  -- Approval and the approver's identity arrive together or not at all.
+  constraint approval_is_complete check (
+    (approved_by is null) = (approved_at is null)
+  ),
+  -- An agent cannot approve its own work. The data-side boundary already
+  -- refuses a service account confirming its own proposal; this is the same
+  -- rule for code.
+  constraint approver_is_not_the_author check (
+    approved_by is null or approved_by <> authored_by
+  ),
+  -- A failing gate is never an approved change. Recording the run is fine and
+  -- expected; marking it approved is not.
+  constraint failed_gate_is_not_approved check (
+    verdict = 'pass' or approved_by is null
+  )
+);
+
+create index if not exists change_gate_by_revision on change_gate (revision)
+  where revision is not null;
+create index if not exists change_gate_unapproved on change_gate (created_at)
+  where approved_by is null;
+
+create table if not exists access_log (
+  access_id        bigserial primary key,
+  at               timestamptz not null default now(),
+  tenant_id        uuid,
+  actor            text not null,
+  actor_kind       text not null,             -- human|service
+  statement        text not null,
+  row_count        integer,
+  purpose          text,
+  constraint actor_kind_valid check (actor_kind in ('human','service'))
+);
+
+create index if not exists access_log_tenant_at on access_log (tenant_id, at desc);
+
+-- Reconciliation outcomes are retained centrally so a retainer SLA can be
+-- reported on without opening every tenant database.
+create table if not exists reconciliation_result (
+  result_id        uuid primary key default gen_random_uuid(),
+  tenant_id        uuid not null references tenant(tenant_id) on delete cascade,
+  firm_id          text not null,
+  check_name       text not null,
+  period           daterange not null,
+  expected         numeric(20,4),
+  actual           numeric(20,4),
+  variance_pct     numeric(10,6),
+  tolerance_pct    numeric(10,6) not null,
+  passed           boolean not null,
+  failing_records  jsonb not null default '[]'::jsonb,
+  evaluated_at     timestamptz not null default now()
+);
+
+create index if not exists recon_tenant_check on reconciliation_result (tenant_id, check_name, evaluated_at desc);
+
+-- --------------------------------------------------------------------------
+-- Forward migrations. `create table if not exists` does not add columns to a
+-- table that already exists, so anything added after first release needs an
+-- explicit, idempotent alter here.
+-- --------------------------------------------------------------------------
+
+alter table control.source_fingerprint
+  add column if not exists field_names jsonb not null default '{}'::jsonb;
