@@ -1,0 +1,10 @@
+name: fracture_canonical
+version: "1.0.0"
+config-version: 2
+profile: fracture_canonical
+model-paths: ["models"]
+test-paths: ["tests"]
+models:
+  fracture_canonical:
+    canonical:
+      +materialized: view

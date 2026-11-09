@@ -1,0 +1,14 @@
+{
+ "service_requests": [
+  {
+   "accountId": null,
+   "assignedRepId": "ADV-002",
+   "closedAt": null,
+   "householdId": "H-\u00dc01",
+   "openedAt": "2025-10-01T08:00:00+00:00",
+   "requestId": "SVC-\u00dc02",
+   "requestType": "onboarding",
+   "slaHours": 240
+  }
+ ]
+}

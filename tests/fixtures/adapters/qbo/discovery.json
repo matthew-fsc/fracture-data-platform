@@ -1,0 +1,30 @@
+[
+ {
+  "name": "expenses",
+  "primary_key": [
+   "expenseId"
+  ],
+  "incremental_on": "txnDate"
+ },
+ {
+  "name": "invoices",
+  "primary_key": [
+   "invoiceId"
+  ],
+  "incremental_on": "txnDate"
+ },
+ {
+  "name": "payments",
+  "primary_key": [
+   "paymentId"
+  ],
+  "incremental_on": "txnDate"
+ },
+ {
+  "name": "time_entries",
+  "primary_key": [
+   "entryId"
+  ],
+  "incremental_on": "entryDate"
+ }
+]

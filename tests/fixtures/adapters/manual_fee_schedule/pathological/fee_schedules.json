@@ -1,0 +1,15 @@
+{
+ "schedules": [
+  {
+   "basis": "AUM",
+   "billingTiming": "advance",
+   "calcMethod": "Blended",
+   "effectiveFrom": "2011-07-01",
+   "effectiveTo": "2024-12-31",
+   "frequency": "QUARTERLY",
+   "name": "Legacy 1.00% \u2014 repapering pending",
+   "scheduleId": "SCHED-LEGACY",
+   "valuationRule": "period_start"
+  }
+ ]
+}

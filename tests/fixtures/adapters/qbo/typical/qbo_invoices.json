@@ -1,0 +1,24 @@
+{
+ "invoices": [
+  {
+   "currency": "USD",
+   "customerRef": "H-001",
+   "dueDate": "2026-05-05",
+   "invoiceId": "INV-001",
+   "lines": [
+    {
+     "accountRef": "A-001",
+     "amount": "3625.00",
+     "basisAmount": "1450000.00",
+     "description": "Advisory fee Q1 2026",
+     "revenueEventId": null
+    }
+   ],
+   "periodEnd": "2026-03-31",
+   "periodStart": "2026-01-01",
+   "status": "open",
+   "totalAmount": "3625.00",
+   "txnDate": "2026-04-05"
+  }
+ ]
+}

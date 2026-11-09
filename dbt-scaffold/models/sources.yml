@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: services_canon
+    description: Professional-services canonical tables. DDL is src/fracture/packs/services/ddl.
+    tables:
+      - name: client
+  - name: wealth_canon
+    description: Wealth canonical tables. DDL is src/fracture/packs/wealth/ddl.
+    tables:
+      - name: household
+      - name: account
+      - name: producer
+      - name: revenue_event
+      - name: invoice

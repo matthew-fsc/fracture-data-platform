@@ -1,0 +1,21 @@
+{
+ "payments": [
+  {
+   "applications": [
+    {
+     "amount": "400.00",
+     "invoiceId": "INV-\u00dc02"
+    },
+    {
+     "amount": "500.00",
+     "invoiceId": "INV-001"
+    }
+   ],
+   "customerRef": "H-\u00dc01",
+   "paymentId": "PMT-\u00dc02",
+   "paymentMethod": null,
+   "totalAmount": "900.00",
+   "txnDate": "2026-06-30"
+  }
+ ]
+}

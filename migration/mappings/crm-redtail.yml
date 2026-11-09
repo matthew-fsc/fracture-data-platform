@@ -1,0 +1,65 @@
+source_id: redtail
+role: crm
+adapter: src/fracture/adapters/sources/redtail.py
+notes:
+  - Servicing-advisor history is not in the extract. The assignment is recorded
+    as valid from the household's creation, and the coverage manifest prices
+    the backfill separately.
+  - taxId and ssn become tax_id_last4. The full value does not enter canon.
+maps:
+  - stream: contacts
+    entity: party
+    fields:
+      - {source: contactId, canonical: party_id, transform: text}
+      - {source: contactType, canonical: party_type, transform: individual, organisation or trust}
+      - {source: displayName, canonical: display_name, transform: displayName, else firstName plus lastName}
+      - {source: legalName, canonical: legal_name, transform: optional text}
+      - {source: country, canonical: country, transform: optional text, default US}
+      - {source: taxId, canonical: tax_id_last4, transform: last four only}
+  - stream: contacts
+    entity: household_member
+    when: familyId is present
+    fields:
+      - {source: familyId, canonical: household_id, transform: text}
+      - {source: contactId, canonical: party_id, transform: text}
+      - {source: familyRole, canonical: role, transform: mapped role, else other}
+  - stream: families
+    entity: household
+    fields:
+      - {source: familyId, canonical: household_id, transform: text}
+      - {source: familyName, canonical: name, transform: text}
+      - {source: segment, canonical: segment, transform: optional text}
+      - {source: createdAt, canonical: onboarded_on, transform: date}
+  - stream: families
+    entity: book_assignment
+    when: servicingAdvisorId is present
+    fields:
+      - {source: servicingAdvisorId, canonical: producer_id, transform: text}
+      - {source: familyId, canonical: household_id, transform: text}
+      - {source: splitPct, canonical: split_pct, transform: decimal, default 100}
+  - stream: users
+    entity: producer
+    fields:
+      - {source: userId, canonical: producer_id, transform: text}
+      - {source: name, canonical: display_name, transform: text}
+      - {source: role, canonical: producer_type, transform: lower case, default advisor}
+      - {source: contactId, canonical: party_id, transform: optional text}
+      - {source: hireDate, canonical: hire_date, transform: date}
+      - {source: termDate, canonical: term_date, transform: date, closes the row}
+  - stream: users
+    entity: producer_crosswalk
+    when: repCode is present
+    fields:
+      - {source: userId, canonical: producer_id, transform: text}
+      - {source: "(constant)", canonical: system, transform: redtail}
+      - {source: repCode, canonical: external_key, transform: text}
+  - stream: activities
+    entity: service_event
+    fields:
+      - {source: activityId, canonical: service_event_id, transform: text}
+      - {source: "(constant)", canonical: event_type, transform: ticket}
+      - {source: familyId, canonical: household_id, transform: optional text}
+      - {source: ownerUserId, canonical: actor_producer_id, transform: optional text}
+      - {source: createdAt, canonical: opened_at, transform: timestamp}
+      - {source: completedAt, canonical: closed_at, transform: timestamp}
+      - {source: slaHours, canonical: sla_target_hours, transform: decimal}

@@ -1,0 +1,35 @@
+source_id: schwab_custodian
+role: custodian
+adapter: src/fracture/adapters/sources/schwab_custodian.py
+notes:
+  - The file has no household. household_id is left null so the custodian does
+    not overwrite the CRM's grouping.
+  - billable is left null. Writing true would pull held-away accounts into
+    expected revenue.
+  - control_totals is not a canonical entity. It is the counterparty figure
+    recon check aum_total compares against.
+maps:
+  - stream: accounts
+    entity: account
+    fields:
+      - {source: AccountNumber, canonical: account_id, transform: text}
+      - {source: "(constant)", canonical: account_type, transform: custodial}
+      - {source: RegistrationType, canonical: account_subtype, transform: optional text}
+      - {source: "(constant)", canonical: custodian, transform: schwab}
+      - {source: OpenDate, canonical: opened_on, transform: date, also valid_from}
+      - {source: CloseDate, canonical: closed_on, transform: date, also valid_to}
+      - {source: CloseDate, canonical: status, transform: closed when CloseDate is set, else open}
+  - stream: positions
+    entity: balance_snapshot
+    fields:
+      - {source: AccountNumber, canonical: account_id, transform: text}
+      - {source: AsOfDate, canonical: as_of_date, transform: date}
+      - {source: TotalValue, canonical: market_value, transform: decimal}
+      - {source: CashBalance, canonical: cash_value, transform: decimal, default 0}
+      - {source: Currency, canonical: currency, transform: optional text, default USD}
+  - stream: control_totals
+    entity: recon.aum_total
+    fields:
+      - {source: AsOfDate, canonical: as_of_date, transform: date}
+      - {source: TotalValue, canonical: total_value, transform: decimal, compared, not loaded to canon}
+      - {source: AccountCount, canonical: account_count, transform: integer}

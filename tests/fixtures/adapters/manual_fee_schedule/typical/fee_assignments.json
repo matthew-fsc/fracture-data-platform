@@ -1,0 +1,11 @@
+{
+ "assignments": [
+  {
+   "effectiveFrom": "2019-04-02",
+   "effectiveTo": null,
+   "scheduleId": "SCHED-STD",
+   "scopeId": "H-001",
+   "scopeType": "household"
+  }
+ ]
+}

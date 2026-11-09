@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: client
+    description: Current services client. One row per firm and client.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: client_id
+        tests: [not_null]
+      - name: name
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+  - name: household
+    description: Current household. One row per firm and household.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: household_id
+        tests: [not_null]
+      - name: name
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+  - name: account
+    description: Current account. One row per firm and account.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: account_id
+        tests: [not_null]
+      - name: account_type
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+  - name: producer
+    description: Current producer. One row per firm and producer.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: producer_id
+        tests: [not_null]
+      - name: display_name
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+  - name: revenue
+    description: Current revenue event. The amount is the source amount, not a recomputation.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: revenue_event_id
+        tests: [not_null]
+      - name: amount
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+  - name: receivable
+    description: Open or partial invoice. The balance is not recomputed here.
+    columns:
+      - name: firm_id
+        tests: [not_null]
+      - name: invoice_id
+        tests: [not_null]
+      - name: total_amount
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
