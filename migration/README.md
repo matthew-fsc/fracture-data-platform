@@ -3,6 +3,21 @@
 Service line: CRM and custodian migration, and the fold-in of an add-on after
 a roll-up.
 
+## Entry point
+
+Fracture OS discovers cards with `fracture_migration.list_cards()` and
+`fracture_migration.load_card(source_id)`, and reads tolerances with
+`fracture_migration.reconciliation()`. Execution argv is
+`fracture_migration.recon_command(slug)` and `migrate_command()`.
+
+```
+PYTHONPATH=migration:src python -m fracture_migration list
+PYTHONPATH=migration:src python -m fracture_migration show redtail
+PYTHONPATH=migration:src python -m fracture_migration checks
+fracture recon <slug>
+fracture migrate
+```
+
 The executable mapping is the adapter under `src/fracture/adapters/sources/`.
 The YAML in `mappings/` is the card an engagement lead reviews with the
 client. It was read off those adapters at `07ace5c`. If a card and an adapter

@@ -4,6 +4,15 @@ Recorded while turning this repository into the delivery-accelerator monorepo.
 Source commits below are the commits that were actually read. A repository
 that returned HTTP 404 was not read, was not copied, and is not safe to archive.
 
+## Fracture OS
+
+`fracture-factory-orchestrator` is Fracture OS, the firm operating system. It
+stays its own repository. It is not merged into this monorepo, even if a later
+session can read it. It is not safe to archive. Fracture OS calls
+`data-profiling`, `migration` and `reporting` through the entry points in
+[`INTERFACES.md`](INTERFACES.md). The other modules expose an entry point on
+the same page so OS can invoke them the same way.
+
 ## This repository
 
 `matthew-fsc/fracture-data-platform`
@@ -38,7 +47,7 @@ because no commit was fetched.
 |---|---|---|---|
 | `fracture-systems-accelerator` | Nothing | Everything, unread | HTTP 404. Assessment templates in `assessment/` were written here from this repo's adapter and assurance model. They are not that repository. |
 | `fracture-accelerator-factory` | Nothing | Everything, unread | HTTP 404. Notification shows commit `c5ed5db` exists. Contents unknown, so not placed in any module. |
-| `fracture-factory-orchestrator` | Nothing | Everything, unread | HTTP 404. Contents unknown. |
+| `fracture-factory-orchestrator` | Nothing. Excluded on purpose. | Not a merge candidate | Fracture OS. It calls this repo through `docs/INTERFACES.md`. Not merged. Not safe to archive. |
 | `fracture-developer-portal` | Nothing | Everything, unread | HTTP 404. Contents unknown. |
 | `fracturesystems-data-profiling` | Nothing | Everything, unread | HTTP 404. `data-profiling/` is a new profiler written in this repo. It is not that repository. |
 | `fracturesystems-dbt-scaffold` | Nothing | Everything, unread | HTTP 404. `dbt-scaffold/` follows the canonical grain already in this repo at `07ace5c`. It is not that repository. |

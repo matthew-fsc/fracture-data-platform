@@ -3,6 +3,18 @@
 Service line: the monthly operating pack on the retainer, and the operating
 visibility pack sold with an M&A roll-up.
 
+## Entry point
+
+Fracture OS lists sections with `fracture_reporting.list_sections()`. It builds
+and verifies with the argv from `build_command(slug, period_end)` and
+`verify_command(slug, pack_run_id)`:
+
+```
+PYTHONPATH=reporting:src python -m fracture_reporting
+fracture pack build <slug> --period-end YYYY-MM-DD
+fracture pack verify <slug> <pack_run_id>
+```
+
 Pack definitions are SQL in `packs/`. `fracture pack build` pins them to a
 system time, hashes the figures, and renders one HTML file. `fracture pack
 verify` rebuilds at that same system time and compares the hash. A difference

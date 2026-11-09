@@ -1,6 +1,6 @@
 # Fracture delivery accelerator
 
-Reusable delivery IP for Fracture Systems Consulting LLC. Engagements start from the module that matches the service line, and the executable platform underneath is the consolidator described further down. Provenance, including repositories this workspace could not read, is in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+Reusable delivery IP for Fracture Systems Consulting LLC. Engagements start from the module that matches the service line, and the executable platform underneath is the consolidator described further down. Fracture OS, the firm operating system, is a separate repository (`fracture-factory-orchestrator`). It is not merged here and it is not safe to archive. It calls these modules through the entry points in [`docs/INTERFACES.md`](docs/INTERFACES.md). Provenance is in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
 
 | Module | Service line | What to use |
 |---|---|---|
@@ -38,7 +38,7 @@ source system's own reported totals, pins a pack, verifies it reissues
 byte-identically, checks every figure opens to raw records, and renders the pack
 to `out/pack.html`.
 
-    make test          # 311 tests
+    make test          # 320 tests
     make demo-small    # the same path in about 4 seconds
 
 It renders two things. `out/pack.html` is the board pack: pinned to a system
@@ -63,7 +63,7 @@ directly. Definitions are in [`docs/KPIS.md`](docs/KPIS.md).
       orchestration/  Dagster assets, tenant as a dynamic partition
     reporting/packs/  pack definitions: SQL in git, diffable
     infra/terraform/  network, control-plane, tenant, compute, reporting
-    tests/            311 tests, every adapter through the same five gates
+    tests/            320 tests, every adapter through the same five gates
 
 ## The four claims, and where each is tested
 

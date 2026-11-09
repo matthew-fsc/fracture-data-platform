@@ -3,6 +3,17 @@
 Service line: platform implementation, the first look at a file a client hands
 over (CRM export, custodian file, general ledger).
 
+## Entry point
+
+Fracture OS calls `fracture_profiling.profile_tree(path)`. The same call as a
+command, with JSON on stdout:
+
+```
+PYTHONPATH=data-profiling python -m fracture_profiling extracts/
+```
+
+`profile_file(path)` profiles one file. The report has no cell values.
+
 `fracture_profiling` reads CSV and JSON and reports row counts, null counts,
 distinct counts and an inferred type per column. The report has no cell
 values. Columns whose names look like an account number, a tax identifier or

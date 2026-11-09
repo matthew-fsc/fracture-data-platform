@@ -2,6 +2,15 @@
 
 Service line: platform implementation, the warehouse decision.
 
+## Entry point
+
+Fracture OS calls `fracture_snowflake.warehouse_decision()`. The engine is
+Postgres 16, one database per tenant. There is no execution command.
+
+```
+PYTHONPATH=snowflake python -m fracture_snowflake
+```
+
 The operating platform in this repository is Postgres 16, one database per
 tenant. `docs/spec-v1.md` records why a separate warehouse was set aside for
 the retainer: the cost floor of a warehouse per tenant exceeds the retainer

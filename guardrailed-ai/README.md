@@ -2,6 +2,16 @@
 
 Service line: intelligent automation inside a regulated workflow.
 
+## Entry point
+
+Fracture OS reads the contract with `fracture_guardrail.describe()`. It submits
+model output only through `fracture_guardrail.record_proposal`, then
+`confirm` or `reject`. Those three call `fracture.ai`.
+
+```
+PYTHONPATH=guardrailed-ai:src python -m fracture_guardrail
+```
+
 The implementation is `src/fracture/ai`. This page is the rule an engagement
 follows. The tests that keep the rule true are `tests/test_ai_boundary.py`.
 

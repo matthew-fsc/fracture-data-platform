@@ -4,6 +4,16 @@ Service line: platform implementation. The canonical financial-services model
 an engagement starts from: clients, households, accounts, producers, revenue
 and receivables, with tests on the grain.
 
+## Entry point
+
+Fracture OS calls `fracture_dbt.project()`, which returns the project directory,
+the profile name, the model names and the `dbt build` argv. It does not connect
+to a warehouse.
+
+```
+PYTHONPATH=dbt-scaffold python -m fracture_dbt
+```
+
 This project was written in this repository, following the canonical tables
 already at `07ace5c`. `fracturesystems-dbt-scaffold` could not be read. This
 directory is not a merge of that repository, and that repository is not safe
