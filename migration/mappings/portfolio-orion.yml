@@ -1,0 +1,73 @@
+source_id: orion
+role: portfolio
+adapter: src/fracture/adapters/sources/orion.py
+notes:
+  - Rep code is stored as a producer_crosswalk row. It is not matched to the
+    custodian by name.
+  - billable defaults to true only when the source omits the flag. An explicit
+    false stays false.
+maps:
+  - stream: households
+    entity: household
+    fields:
+      - {source: householdId, canonical: household_id, transform: text}
+      - {source: name, canonical: name, transform: text}
+      - {source: tier, canonical: segment, transform: optional text}
+      - {source: createdOn, canonical: onboarded_on, transform: date}
+  - stream: accounts
+    entity: account
+    fields:
+      - {source: accountId, canonical: account_id, transform: text}
+      - {source: "(constant)", canonical: account_type, transform: custodial}
+      - {source: registrationType, canonical: account_subtype, transform: optional text}
+      - {source: householdId, canonical: household_id, transform: optional text}
+      - {source: primaryContactId, canonical: party_id, transform: optional text}
+      - {source: custodian, canonical: custodian, transform: optional text}
+      - {source: openedOn, canonical: opened_on, transform: date}
+      - {source: closedOn, canonical: closed_on, transform: date}
+      - {source: billable, canonical: billable, transform: boolean, default true}
+  - stream: accounts
+    entity: party
+    when: primaryContactId is present
+    fields:
+      - {source: primaryContactId, canonical: party_id, transform: text}
+      - {source: "(constant)", canonical: party_type, transform: individual}
+      - {source: primaryContactName, canonical: display_name, transform: text}
+      - {source: taxId, canonical: tax_id_last4, transform: last four only}
+  - stream: positions
+    entity: balance_snapshot
+    fields:
+      - {source: accountId, canonical: account_id, transform: text}
+      - {source: asOfDate, canonical: as_of_date, transform: date}
+      - {source: marketValue, canonical: market_value, transform: decimal}
+      - {source: cashValue, canonical: cash_value, transform: decimal, default 0}
+      - {source: billableValue, canonical: billable_value, transform: decimal, null if omitted}
+      - {source: currency, canonical: currency, transform: optional text, default USD}
+  - stream: representatives
+    entity: producer
+    fields:
+      - {source: repId, canonical: producer_id, transform: text}
+      - {source: name, canonical: display_name, transform: text}
+      - {source: "(constant)", canonical: producer_type, transform: advisor}
+      - {source: hireDate, canonical: hire_date, transform: date}
+      - {source: termDate, canonical: term_date, transform: date}
+      - {source: repCode, canonical: external_key, transform: producer_crosswalk when present}
+  - stream: representatives
+    entity: book_assignment
+    fields:
+      - {source: repId, canonical: producer_id, transform: text}
+      - {source: householdId, canonical: household_id, transform: text, from each assignment}
+      - {source: splitPct, canonical: split_pct, transform: decimal, default 100}
+      - {source: effectiveFrom, canonical: valid_from, transform: date}
+      - {source: effectiveTo, canonical: valid_to, transform: date}
+  - stream: service_requests
+    entity: service_event
+    fields:
+      - {source: requestId, canonical: service_event_id, transform: text}
+      - {source: requestType, canonical: event_type, transform: text}
+      - {source: householdId, canonical: household_id, transform: optional text}
+      - {source: accountId, canonical: account_id, transform: optional text}
+      - {source: assignedRepId, canonical: actor_producer_id, transform: optional text}
+      - {source: openedAt, canonical: opened_at, transform: timestamp}
+      - {source: closedAt, canonical: closed_at, transform: timestamp}
+      - {source: slaHours, canonical: sla_target_hours, transform: decimal}

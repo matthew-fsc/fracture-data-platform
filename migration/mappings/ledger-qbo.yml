@@ -1,0 +1,68 @@
+source_id: qbo
+role: ledger
+adapter: src/fracture/adapters/sources/qbo.py
+notes:
+  - An invoice whose header total disagrees with the sum of its lines is
+    rejected. Neither figure is chosen silently.
+  - A billed line is also a revenue_event with origin source, so it stays
+    distinct from a fee-schedule accrual.
+maps:
+  - stream: invoices
+    entity: invoice
+    fields:
+      - {source: invoiceId, canonical: invoice_id, transform: text}
+      - {source: customerRef, canonical: household_id, transform: optional text}
+      - {source: txnDate, canonical: issued_on, transform: date}
+      - {source: dueDate, canonical: due_on, transform: date}
+      - {source: periodStart, canonical: period_start, transform: date}
+      - {source: periodEnd, canonical: period_end, transform: date}
+      - {source: totalAmount, canonical: total_amount, transform: decimal, must equal the lines}
+      - {source: currency, canonical: currency, transform: optional text, default USD}
+      - {source: status, canonical: status, transform: lower case, default open}
+  - stream: invoices
+    entity: invoice_line
+    fields:
+      - {source: invoiceId, canonical: invoice_id, transform: text}
+      - {source: "(constant)", canonical: line_no, transform: position in the lines array, from 1}
+      - {source: revenueEventId, canonical: revenue_event_id, transform: optional text}
+      - {source: accountRef, canonical: account_id, transform: optional text}
+      - {source: description, canonical: description, transform: optional text}
+      - {source: amount, canonical: amount, transform: decimal}
+  - stream: invoices
+    entity: revenue_event
+    fields:
+      - {source: invoiceId, canonical: revenue_event_id, transform: "BILLED-{invoiceId}-{line_no}"}
+      - {source: "(constant)", canonical: event_type, transform: fee_accrual}
+      - {source: "(constant)", canonical: origin, transform: source}
+      - {source: amount, canonical: amount, transform: decimal, the line amount}
+      - {source: basisAmount, canonical: basis_amount, transform: decimal, null if omitted}
+  - stream: payments
+    entity: cash_receipt
+    fields:
+      - {source: paymentId, canonical: receipt_id, transform: text}
+      - {source: customerRef, canonical: household_id, transform: optional text}
+      - {source: txnDate, canonical: received_on, transform: date}
+      - {source: totalAmount, canonical: amount, transform: decimal}
+      - {source: paymentMethod, canonical: method, transform: optional text}
+  - stream: payments
+    entity: receipt_application
+    fields:
+      - {source: paymentId, canonical: receipt_id, transform: text}
+      - {source: invoiceId, canonical: invoice_id, transform: text}
+      - {source: amount, canonical: amount_applied, transform: decimal}
+  - stream: expenses
+    entity: cost_line
+    fields:
+      - {source: expenseId, canonical: cost_id, transform: text}
+      - {source: txnDate, canonical: period_start, transform: date}
+      - {source: amount, canonical: amount, transform: decimal}
+      - {source: category, canonical: category, transform: lower case, default vendor}
+  - stream: time_entries
+    entity: fte_allocation
+    fields:
+      - {source: entryId, canonical: natural_key, transform: text}
+      - {source: employeeRef, canonical: person_id, transform: text}
+      - {source: producerRef, canonical: producer_id, transform: optional text}
+      - {source: customerRef, canonical: household_id, transform: optional text}
+      - {source: hours, canonical: hours, transform: decimal}
+      - {source: hourlyCost, canonical: hourly_cost, transform: decimal}

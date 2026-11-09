@@ -1,4 +1,20 @@
-# Fracture Systems Consolidator Platform
+# Fracture delivery accelerator
+
+Reusable delivery IP for Fracture Systems Consulting LLC. Engagements start from the module that matches the service line, and the executable platform underneath is the consolidator described further down. Provenance, including repositories this workspace could not read, is in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+
+| Module | Service line | What to use |
+|---|---|---|
+| [`assessment/`](assessment/README.md) | Architecture assessment (fixed fee, 1–2 weeks). Also the systems and data diligence that opens an M&A fold-in. | Inventory, integration map, target-state and findings templates. Coverage and fold-in hours come from `fracture assess`, not from a hand-written estimate. |
+| [`data-profiling/`](data-profiling/README.md) | Platform implementation, at intake. | Profiles a CRM export, custodian file or ledger extract down to column shape. Cell values are not retained. |
+| [`dbt-scaffold/`](dbt-scaffold/README.md) | Platform implementation, the canonical model. | Clients, households, accounts, producers, revenue and receivables, with grain tests. The model the platform actually runs is the SQL under `src/fracture/packs/`. |
+| [`snowflake/`](snowflake/README.md) | Platform implementation, warehouse choice. | The decision already taken in this repo. No evaluation harness was available to copy. |
+| [`migration/`](migration/README.md) | Platform implementation (CRM and custodian migration) and M&A fold-in. | Field maps taken from the adapters, the reconciliation checks, and the cutover runbook. |
+| [`reporting/`](reporting/README.md) | M&A operating visibility, and the retainer's monthly pack. | Pack SQL in `reporting/packs/`, rendered by `fracture pack`. |
+| [`guardrailed-ai/`](guardrailed-ai/README.md) | Intelligent automation. | The boundary in `src/fracture/ai`: drafts, extracts and summarises. It does not compute a figure. |
+
+There is no `rd/` tree. The model-training and market-topology repositories were not readable from this workspace, so nothing from them was imported.
+
+## Consolidator platform
 
 One codebase serving four commercial motions: systems and data diligence,
 platform operating model, add-on fold-in, and the operating retainer. The
@@ -22,7 +38,7 @@ source system's own reported totals, pins a pack, verifies it reissues
 byte-identically, checks every figure opens to raw records, and renders the pack
 to `out/pack.html`.
 
-    make test          # 252 tests
+    make test          # 311 tests
     make demo-small    # the same path in about 4 seconds
 
 It renders two things. `out/pack.html` is the board pack: pinned to a system
@@ -47,7 +63,7 @@ directly. Definitions are in [`docs/KPIS.md`](docs/KPIS.md).
       orchestration/  Dagster assets, tenant as a dynamic partition
     reporting/packs/  pack definitions: SQL in git, diffable
     infra/terraform/  network, control-plane, tenant, compute, reporting
-    tests/            252 tests, every adapter through the same five gates
+    tests/            311 tests, every adapter through the same five gates
 
 ## The four claims, and where each is tested
 
